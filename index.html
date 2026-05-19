@@ -1,0 +1,3069 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente de Situaciones Jurídicas v1.5</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Múltiples CDNs para docx.js para asegurar carga en redes institucionales restrictivas -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@7.3.0/build/index.js"></script>
+    <script>
+        // Fallback dinámico a unpkg si jsDelivr falla
+        if (typeof window.docx === 'undefined') {
+            document.write('<script src="https://unpkg.com/docx@7.3.0/build/index.js"><\/script>');
+        }
+    </script>
+    
+    <!-- SCRIPT DE SEGURIDAD ANTI-COPIA Y ANTI-DEVTOOLS -->
+    <script>
+        // 1. Bloquear Click Derecho
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        // 2. Bloquear Teclas de Herramientas de Desarrollador (F12, Ctrl+Shift+I, Ctrl+U, etc.)
+        document.addEventListener('keydown', function(e) {
+            if (e.keyCode === 123 || // F12
+               (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // Ctrl+Shift+I/J/C
+               (e.ctrlKey && e.keyCode === 85)) { // Ctrl+U
+                e.preventDefault();
+                return false;
+            }
+            
+            // 3. Bloquear Ctrl+C (Copiar) general, excepto en campos de entrada donde se requiere escribir
+            if (e.ctrlKey && e.keyCode === 67) {
+                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Protección contra selección manual de texto en la pantalla */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        /* Permitir selección y escritura SOLO dentro de los campos de formulario */
+        input, textarea, select {
+            -webkit-user-select: auto;
+            -moz-user-select: auto;
+            -ms-user-select: auto;
+            user-select: auto;
+        }
+        
+        /* Estilos personalizados para barra de desplazamiento */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- PANTALLA DE ACCESO RESTRINGIDO (LOGIN MANDATORIO) -->
+    <div id="login-overlay" class="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-slate-200">
+            <div class="flex flex-col items-center text-center space-y-3">
+                <div class="bg-indigo-650 p-3 rounded-full shadow-lg shadow-indigo-200">
+                    <i data-lucide="scale" class="w-8 h-8 text-white"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Acceso Restringido</h2>
+                    <p class="text-xs text-slate-500 mt-1">Asistente de Situaciones Jurídicas v1.5</p>
+                </div>
+            </div>
+            
+            <div id="login-error-toast" class="hidden bg-rose-50 text-rose-600 border border-rose-200 rounded-lg p-3 text-xs font-semibold flex items-center space-x-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+                <span>Usuario o contraseña incorrectos. Intente de nuevo.</span>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Usuario</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2.5 text-slate-400">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" id="login-user" required placeholder="PEREIRA" class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Contraseña</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2.5 text-slate-400">
+                            <i data-lucide="lock" class="w-4 h-4"></i>
+                        </span>
+                        <input type="password" id="login-pass" required placeholder="••••" class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-indigo-650 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition flex justify-center items-center space-x-2 shadow-lg shadow-indigo-100">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    <span>Ingresar al Sistema</span>
+                </button>
+            </form>
+            
+            <div class="text-center pt-4 border-t border-slate-100 space-y-1.5">
+                <p class="text-[11px] font-bold text-slate-500">Desarrollador: Dgte. Romero Echeverry Eduard Andres</p>
+                <div class="flex justify-center items-center space-x-3 text-[10px] text-slate-400">
+                    <span class="flex items-center space-x-1" title="Correo Electrónico">
+                        <i data-lucide="mail" class="w-3 h-3"></i>
+                        <span>Romeroeandres@gmail.com</span>
+                    </span>
+                    <span class="flex items-center space-x-1" title="WhatsApp">
+                        <i data-lucide="phone" class="w-3 h-3"></i>
+                        <span>3114493253</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMACIÓN PERSONALIZADO -->
+    <div id="modal-confirm-dialog" class="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex items-center space-x-3 text-amber-500">
+                <i data-lucide="help-circle" class="w-8 h-8"></i>
+                <h3 class="font-bold text-lg text-slate-800" id="confirm-title">Confirmar acción</h3>
+            </div>
+            <p class="text-sm text-slate-600" id="confirm-message">¿Está seguro de realizar esta acción?</p>
+            <div class="flex justify-end space-x-2">
+                <button id="btn-confirm-cancel" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">Cancelar</button>
+                <button id="btn-confirm-accept" class="bg-indigo-650 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIGURACIÓN DE FIREBASE EN LA NUBE -->
+    <div id="modal-cloud-config" class="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200">
+            <div class="flex items-center space-x-3 text-indigo-650">
+                <i data-lucide="cloud" class="w-8 h-8"></i>
+                <h3 class="font-bold text-lg text-slate-800">Sincronización en la Nube</h3>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                Para compartir tus expedientes y reportes entre múltiples computadores de forma gratuita en Netlify, necesitas enlazar tu propio proyecto de base de datos de Firebase.
+            </p>
+            <div class="space-y-2">
+                <label class="block text-xs font-bold text-slate-500 uppercase">Pega aquí tu Configuración de Firebase (formato JSON o código directo):</label>
+                <textarea id="cloud-firebase-config-input" rows="7" placeholder='const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+};' class="w-full border border-slate-300 rounded-lg p-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"></textarea>
+            </div>
+            <div class="text-[10px] text-slate-500 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100 leading-relaxed">
+                <strong>¿Cómo se obtiene?</strong> Ve a la consola de tu proyecto de Firebase, ingresa a la configuración de tu App Web, copia el bloque de código de configuración y pégalo completo aquí. Al dejarlo vacío, el asistente operará únicamente en modo local de este equipo.
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeCloudConfigModal()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">Cancelar</button>
+                <button onclick="saveCloudFirebaseConfig()" class="bg-indigo-650 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition shadow">Guardar y Conectar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra Superior de Estado y Licencia -->
+    <header class="bg-indigo-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2 rounded-lg">
+                    <i data-lucide="scale" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight">Asistente de Situaciones Jurídicas <span class="text-indigo-300 text-xs px-2 py-0.5 bg-indigo-950 rounded-full">v1.5 Web</span></h1>
+                    <p class="text-xs text-indigo-200 flex items-center gap-1.5">
+                        <span>Dgte. Romero Echeverry Eduard Andres — Derechos Reservados</span>
+                        <span class="text-indigo-400">|</span>
+                        <span class="flex items-center gap-1"><i data-lucide="phone" class="w-3 h-3"></i> WhatsApp: 3114493253</span>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Información de Licencia y Estado de Sincronización -->
+            <div class="flex flex-wrap items-center gap-4 bg-indigo-950/60 px-4 py-2 rounded-lg border border-indigo-700/50 text-xs">
+                
+                <!-- Estado de la Nube -->
+                <div class="flex items-center space-x-1.5" id="cloud-status-container">
+                    <span class="w-2 h-2 rounded-full bg-slate-400" id="cloud-status-dot"></span>
+                    <span id="cloud-status-text" class="font-medium text-slate-300 text-xs">Modo Local (Sin Nube)</span>
+                </div>
+
+                <div class="h-4 w-[1px] bg-indigo-800"></div>
+
+                <!-- Botón Configuración de Sincronización -->
+                <button onclick="openCloudConfigModal()" class="flex items-center space-x-1 bg-indigo-800 hover:bg-indigo-750 text-white text-[10px] px-2.5 py-1 rounded border border-indigo-700/50 transition" title="Configurar Base de Datos en la Nube">
+                    <i data-lucide="cloud" class="w-3.5 h-3.5"></i>
+                    <span>Configurar Nube</span>
+                </button>
+
+                <div class="h-4 w-[1px] bg-indigo-800"></div>
+
+                <div class="flex items-center space-x-1.5 text-emerald-400">
+                    <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    <span class="font-semibold">LICENCIA VIGENTE</span>
+                </div>
+                <div class="text-slate-300">
+                    Expira: <span class="font-semibold text-white">15/Nov/2026</span>
+                </div>
+                <div class="bg-indigo-800/80 px-2 py-0.5 rounded text-[10px] text-indigo-200" id="days-left">
+                    Verificando...
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal de Trabajo -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- COLUMNA IZQUIERDA: Formulario de Datos (7 de 12 columnas) -->
+        <div class="lg:col-span-7 space-y-6">
+            
+            <!-- SECCIÓN 1: Datos PPL -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+                <div class="bg-sky-50 border-b border-sky-100 px-5 py-4 flex items-center space-x-2 rounded-t-xl">
+                    <i data-lucide="user" class="w-5 h-5 text-sky-600"></i>
+                    <h2 class="font-bold text-sky-900 text-sm uppercase tracking-wider">1. Datos del PPL</h2>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Número Único (Identificador Principal)</label>
+                        <div class="relative">
+                            <input type="text" id="ppl-numero-unico" placeholder="Ingrese o busque por Número Único..." class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition font-mono" onblur="checkExistingPPL()">
+                            <button onclick="triggerPPLSearchModal()" class="absolute right-2 top-1.5 text-slate-400 hover:text-sky-600 transition" title="Buscar PPL en la base de datos">
+                                <i data-lucide="search" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Nombre Completo</label>
+                        <input type="text" id="ppl-nombre" placeholder="NOMBRES Y APELLIDOS COMPLETOS" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 uppercase transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Cédula de Ciudadanía</label>
+                        <input type="text" id="ppl-cedula" placeholder="Cédula" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition" oninput="formatCedulaInput(this)">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Expediente</label>
+                        <input type="text" id="ppl-expediente" placeholder="Nº de Expediente" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Patio / Ubicación</label>
+                        <select id="ppl-patio" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition">
+                            <option value="">-- Seleccione Patio --</option>
+                            <option value="2">Patio 2</option>
+                            <option value="3">Patio 3</option>
+                            <option value="4">Patio 4</option>
+                            <option value="5">Patio 5</option>
+                            <option value="ERE">ERE (Especial)</option>
+                            <option value="RANCHO">Rancho / Cocina</option>
+                            <option value="DOMICILIARIA">Domiciliaria</option>
+                            <option value="VIGILANCIA E.">Vigilancia Electrónica</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 2: Proceso Judicial -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+                <div class="bg-amber-50 border-b border-amber-100 px-5 py-4 flex items-center space-x-2 rounded-t-xl">
+                    <i data-lucide="gavel" class="w-5 h-5 text-amber-600"></i>
+                    <h2 class="font-bold text-amber-900 text-sm uppercase tracking-wider">2. Proceso Judicial</h2>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Fecha de Captura Actual</label>
+                            <input type="date" id="proc-fecha-captura" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition" onchange="runCalculations()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Condena Impuesta</label>
+                            <div class="flex items-center space-x-1.5">
+                                <input type="number" id="proc-condena-anos" placeholder="Años" min="0" class="w-16 text-center border border-slate-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" onchange="runCalculations()">
+                                <span class="text-xs text-slate-400">Y</span>
+                                <input type="number" id="proc-condena-meses" placeholder="Meses" min="0" max="11" class="w-16 text-center border border-slate-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" onchange="runCalculations()">
+                                <span class="text-xs text-slate-400">M</span>
+                                <input type="number" id="proc-condena-dias" placeholder="Días" min="0" max="29" class="w-16 text-center border border-slate-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" onchange="runCalculations()">
+                                <span class="text-xs text-slate-400">D</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relative focus-within:z-50">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Juez Fallador</label>
+                        <input type="text" id="proc-juez-fallador" placeholder="Ej. JUZGADO PENAL DEL CIRCUITO..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition uppercase" oninput="showAutocomplete('juez', this)">
+                        <div id="autocomplete-juez" class="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl hidden max-h-48 overflow-y-auto mt-1 text-sm"></div>
+                    </div>
+
+                    <div class="relative focus-within:z-50">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Delito(s) (Múltiple, separados por comas)</label>
+                        <input type="text" id="proc-delito" placeholder="Ej. HOMICIDIO, PORTE DE ARMAS" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition uppercase" oninput="showAutocomplete('delito', this)">
+                        <div id="autocomplete-delito" class="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl hidden max-h-48 overflow-y-auto mt-1 text-sm"></div>
+                    </div>
+
+                    <div class="relative focus-within:z-50">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Autoridad Judicial Activa (Vigilancia de Pena)</label>
+                        <input type="text" id="proc-autoridad-activa" placeholder="Ej. JUZGADO 5 DE EJECUCION DE PENAS..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition uppercase" oninput="showAutocomplete('autoridad', this)">
+                        <div id="autocomplete-autoridad" class="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl hidden max-h-48 overflow-y-auto mt-1 text-sm"></div>
+                    </div>
+                    
+                    <!-- NUEVO CAMPO: REQUERIMIENTOS -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Requerimientos / Otros Procesos (Opcional)</label>
+                        <input type="text" id="proc-requerimientos" placeholder="Ej. REQUERIDO POR JUZGADO 1 PENAL MUNICIPAL..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition uppercase">
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 3: Estado Penitenciario -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+                <div class="bg-emerald-50 border-b border-emerald-100 px-5 py-4 flex items-center space-x-2 rounded-t-xl">
+                    <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+                    <h2 class="font-bold text-emerald-900 text-sm uppercase tracking-wider">3. Estado del PPL</h2>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Situación Jurídica</label>
+                        <select id="est-situacion" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            <option value="CONDENADO" selected>CONDENADO</option>
+                            <option value="SINDICADO">SINDICADO</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Calificación de Conducta</label>
+                        <select id="est-conducta" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            <option value="EJEMPLAR" selected>EJEMPLAR</option>
+                            <option value="BUENA">BUENA</option>
+                            <option value="REGULAR">REGULAR</option>
+                            <option value="MALA">MALA</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Fase de Tratamiento</label>
+                        <select id="est-fase" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            <option value="OBSERVACIÓN Y DIAGNÓSTICO">OBSERVACIÓN Y DIAGNÓSTICO</option>
+                            <option value="ALTA SEGURIDAD">ALTA SEGURIDAD</option>
+                            <option value="MEDIANA SEGURIDAD" selected>MEDIANA SEGURIDAD</option>
+                            <option value="MÍNIMA SEGURIDAD">MÍNIMA SEGURIDAD</option>
+                            <option value="CONFIANZA">CONFIANZA</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Actividad de Descuento</label>
+                        <select id="est-actividad" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            <option value="TRABAJO" selected>TRABAJO</option>
+                            <option value="ESTUDIO">ESTUDIO</option>
+                            <option value="ENSEÑANZA">ENSEÑANZA</option>
+                            <option value="NINGUNA">NINGUNA</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Sanciones Disciplinarias</label>
+                        <input type="text" id="est-sanciones" value="NO PRESENTA SANCIONES DISCIPLINARIAS VIGENTES" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 4: Fechas de Detención Anterior -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+                <div class="bg-indigo-50 border-b border-indigo-100 px-5 py-4 flex items-center space-x-2 rounded-t-xl">
+                    <i data-lucide="calendar-days" class="w-5 h-5 text-indigo-600"></i>
+                    <h2 class="font-bold text-indigo-900 text-sm uppercase tracking-wider">4. Fechas de Detención Anterior (Condicional)</h2>
+                </div>
+                <div class="p-5 space-y-4">
+                    <!-- Periodo 1 -->
+                    <div class="space-y-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wide block">Primer Periodo</span>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Captura Anterior 1</label>
+                                <input type="date" id="det-ant-ini-1" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" onchange="calculateDetentionDays(1)">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Liberación Anterior 1</label>
+                                <input type="date" id="det-ant-fin-1" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" onchange="calculateDetentionDays(1)">
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-600 flex justify-between items-center">
+                            <span>Tiempo Liquidado 1:</span>
+                            <span id="det-ant-res-1-display" class="font-bold text-indigo-700">--</span>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-100">
+
+                    <!-- Periodo 2 -->
+                    <div class="space-y-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wide block">Segundo Periodo</span>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Captura Anterior 2</label>
+                                <input type="date" id="det-ant-ini-2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" onchange="calculateDetentionDays(2)">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Liberación Anterior 2</label>
+                                <input type="date" id="det-ant-fin-2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" onchange="calculateDetentionDays(2)">
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-600 flex justify-between items-center">
+                            <span>Tiempo Liquidado 2:</span>
+                            <span id="det-ant-res-2-display" class="font-bold text-indigo-700">--</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 5: Configuración del Reporte -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+                <div class="bg-slate-50 border-b border-slate-100 px-5 py-4 flex items-center space-x-2 rounded-t-xl">
+                    <i data-lucide="file-text" class="w-5 h-5 text-slate-600"></i>
+                    <h2 class="font-bold text-slate-900 text-sm uppercase tracking-wider">5. Configuración del Reporte</h2>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Código de Oficio Interno</label>
+                        <input type="text" id="rep-codigo-interno" value="616-1.7-CPMSPEI-JURIDICA-10" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 font-mono transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Fecha Solicitud del PPL</label>
+                        <input type="date" id="rep-fecha-solicitud" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Elaborado por</label>
+                        <select id="rep-elaborador" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 transition">
+                            <option value="DG. Manrique Franco Jhon - Area Jurídica" selected>DG. Manrique Franco Jhon - Area Jurídica</option>
+                            <option value="DG. Romero Eduard Andrés Pereira - Area Juridica">DG. Romero Eduard Andrés Pereira - Area Juridica</option>
+                            <option value="ADM. Juliana Herrera O. - Area Jurídica">ADM. Juliana Herrera O. - Area Jurídica</option>
+                            <option value="P.U. Javier Orbes B. - Area Jurídica">P.U. Javier Orbes B. - Area Jurídica</option>
+                            <option value="DG. Diana Garcia">DG. Diana Garcia</option>
+                            <option value="DG. Acosta Alvear H.">DG. Acosta Alvear H.</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- COLUMNA DERECHA: Redenciones y Dashboard de Resultados (5 de 12 columnas) -->
+        <div class="lg:col-span-5 space-y-6 flex flex-col">
+            
+            <!-- SECCIÓN REDENCIONES EXTENDIDAS (Estática sin barra de desplazamiento) -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible flex flex-col flex-1">
+                <div class="bg-rose-50 border-b border-rose-100 px-5 py-4 flex justify-between items-center rounded-t-xl">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="calculator" class="w-5 h-5 text-rose-600"></i>
+                        <h2 class="font-bold text-rose-900 text-sm uppercase tracking-wider">6. Redenciones Extendidas</h2>
+                    </div>
+                    <button onclick="openHoursCalculator()" class="bg-rose-600 text-white hover:bg-rose-700 transition px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 shadow-sm">
+                        <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                        <span>Calc. Horas</span>
+                    </button>
+                </div>
+                
+                <!-- Planilla de 30 filas - Estática y continua sin barras de desplazamiento -->
+                <div class="p-4 bg-slate-50/50 space-y-1" id="redenciones-container">
+                    <!-- Encabezados con anclaje de columnas entero 100% Tailwind compatible (Rejilla de 12) -->
+                    <div class="grid grid-cols-12 gap-1.5 text-[10px] font-bold text-slate-400 uppercase text-center mb-1">
+                        <div class="col-span-1">#</div>
+                        <div class="col-span-3">Nº Auto</div>
+                        <div class="col-span-4">Fecha</div>
+                        <div class="col-span-1">A</div>
+                        <div class="col-span-1">M</div>
+                        <div class="col-span-2">D</div>
+                    </div>
+                    <!-- Filas generadas dinámicamente -->
+                    <div id="redenciones-rows-wrapper" class="space-y-1.5"></div>
+                </div>
+
+                <!-- Totalizador de Redenciones -->
+                <div class="bg-slate-100 border-t border-slate-200 p-4 flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-500 uppercase">Total Redención:</span>
+                    <span id="redemption-total-display" class="font-bold text-sm text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1 rounded-lg">0 meses 0 días</span>
+                </div>
+            </section>
+
+            <!-- SECCIÓN RESUMEN DE TIEMPOS (Dashboard) -->
+            <section class="bg-slate-900 text-slate-100 rounded-xl shadow-xl overflow-hidden">
+                <div class="bg-slate-950 px-5 py-4 flex items-center space-x-2 border-b border-slate-800">
+                    <i data-lucide="gauge" class="w-5 h-5 text-indigo-400"></i>
+                    <h2 class="font-bold text-slate-200 text-sm uppercase tracking-wider">7. Resumen de Cómputo Real</h2>
+                </div>
+                <div class="p-5 space-y-4">
+                    
+                    <!-- NUEVO BLOQUE: CONDENA IMPUESTA -->
+                    <div class="bg-slate-800/80 p-3 rounded-lg border border-slate-700 flex justify-between items-center">
+                        <div class="space-y-0.5">
+                            <span class="block text-[10px] text-slate-400 uppercase font-bold tracking-wider">Condena Impuesta Total</span>
+                            <span id="calc-condena-total" class="block text-sm font-extrabold text-indigo-300">--</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-800">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">Físico Actual</span>
+                            <span id="calc-fisico-actual" class="block text-xs font-bold mt-1 text-slate-200">--</span>
+                        </div>
+                        <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-800">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">Redenciones</span>
+                            <span id="calc-redenciones-totales" class="block text-xs font-bold mt-1 text-rose-300">--</span>
+                        </div>
+                        <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-800">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">Det. Anterior</span>
+                            <span id="calc-det-anterior" class="block text-xs font-bold mt-1 text-indigo-300">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Tiempo Cumplido & Restante -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div class="space-y-0.5">
+                            <span class="block text-[11px] text-slate-400 uppercase font-bold tracking-wider">Tiempo Cumplido</span>
+                            <span id="calc-tiempo-cumplido" class="block text-sm font-extrabold text-emerald-400">--</span>
+                        </div>
+                        <div class="h-8 w-[1px] bg-slate-800"></div>
+                        <div class="space-y-0.5 text-right">
+                            <span class="block text-[11px] text-slate-400 uppercase font-bold tracking-wider">Tiempo Restante</span>
+                            <span id="calc-tiempo-restante" class="block text-sm font-extrabold text-slate-200">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Beneficios y Subrogados -->
+                    <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 space-y-2">
+                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Beneficios y Subrogados Penales</span>
+                        <div class="space-y-1.5 text-xs">
+                            <div class="flex justify-between items-center py-1 border-b border-slate-900">
+                                <span class="text-slate-300">Permiso 72h (30%)</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="req-72h-display" class="text-[10px] text-slate-400">--</span>
+                                    <span id="status-72h-badge" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-800 text-slate-400">--</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-1 border-b border-slate-900">
+                                <span class="text-slate-300">P. Domiciliaria (50%)</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="req-dom-display" class="text-[10px] text-slate-400">--</span>
+                                    <span id="status-dom-badge" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-800 text-slate-400">--</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-1">
+                                <span class="text-slate-300">L. Condicional (3/5)</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="req-cond-display" class="text-[10px] text-slate-400">--</span>
+                                    <span id="status-cond-badge" class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-800 text-slate-400">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+    </main>
+
+    <!-- Barra de Acciones Fija Inferior -->
+    <footer class="bg-slate-100 border-t border-slate-200 sticky bottom-0 z-40 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap gap-3 justify-center md:justify-between items-center">
+            
+            <div class="flex flex-wrap gap-2">
+                <button onclick="cleanForm()" class="bg-slate-200 text-slate-700 hover:bg-slate-300 transition px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5">
+                    <i data-lucide="eraser" class="w-4 h-4"></i>
+                    <span>Limpiar</span>
+                </button>
+                <button id="btn-save-calc" onclick="saveAndCalculate()" class="bg-emerald-600 text-white hover:bg-emerald-700 transition px-5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>Calcular y Guardar</span>
+                </button>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <!-- NUEVO BOTÓN PARA INFORME DE CUMPLIMIENTO -->
+                <button onclick="openComplianceModal()" class="bg-amber-500 text-slate-900 hover:bg-amber-600 transition px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow">
+                    <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                    <span>Informe de Cumplimiento</span>
+                </button>
+
+                <button onclick="openHistoryModal()" class="bg-indigo-600 text-white hover:bg-indigo-700 transition px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow">
+                    <i data-lucide="archive" class="w-4 h-4"></i>
+                    <span>Historial de Reportes</span>
+                </button>
+                <button id="btn-gen-docx" onclick="generateWordDocument()" class="bg-sky-600 text-white hover:bg-sky-700 transition px-5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow">
+                    <i data-lucide="file-word" class="w-4 h-4"></i>
+                    <span>Generar Oficio Word (.docx)</span>
+                </button>
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- MODAL: CALCULADORA DE HORAS -->
+    <div id="modal-horas" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="bg-slate-900 text-white px-5 py-4 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="clock" class="text-rose-500 w-5 h-5"></i>
+                    <h3 class="font-bold text-sm tracking-wide uppercase">Calculadora de Horas por Actividad</h3>
+                </div>
+                <button onclick="closeHoursCalculator()" class="text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Solapas de Actividad -->
+            <div class="bg-slate-100 border-b border-slate-200 px-4 flex space-x-2">
+                <button onclick="switchActivityTab('TRABAJO')" id="tab-TRABAJO" class="px-4 py-3 text-xs font-bold border-b-2 border-rose-600 text-rose-600 transition">TRABAJO (div/16)</button>
+                <button onclick="switchActivityTab('ESTUDIO')" id="tab-ESTUDIO" class="px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">ESTUDIO (div/12)</button>
+                <button onclick="switchActivityTab('ENSEÑANZA')" id="tab-ENSEÑANZA" class="px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">ENSEÑANZA (div/8)</button>
+            </div>
+
+            <div class="p-6 flex-1 overflow-y-auto" id="hours-inputs-container">
+                <p class="text-xs text-slate-400 mb-4">Ingrese la cantidad de horas acreditadas en cada planilla (hasta 20 certificaciones):</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3" id="hours-grid"></div>
+            </div>
+
+            <!-- Dashboard de Calculadora -->
+            <div class="bg-slate-50 border-t border-slate-200 p-5 flex flex-wrap justify-between items-center gap-4">
+                <div class="flex gap-4 text-xs">
+                    <div>
+                        <span class="block text-slate-400 uppercase font-semibold text-[9px]">Total Horas Actividad</span>
+                        <span id="modal-horas-actividad-total" class="font-bold text-slate-800">0 h</span>
+                    </div>
+                    <div>
+                        <span class="block text-slate-400 uppercase font-semibold text-[9px]">Días Equivalentes</span>
+                        <span id="modal-dias-actividad-total" class="font-bold text-rose-600">0 meses 0 días</span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="clearHoursCalculatorFields()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 transition px-3 py-1.5 rounded-lg text-xs font-semibold">
+                        Limpiar Actividad
+                    </button>
+                    <button onclick="transferHoursToRedemption()" class="bg-rose-600 hover:bg-rose-700 text-white transition px-4 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5">
+                        <i data-lucide="arrow-right-left" class="w-3.5 h-3.5"></i>
+                        <span>Transferir a Redención</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: HISTORIAL DE REPORTES -->
+    <div id="modal-historial" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="bg-indigo-950 text-white px-5 py-4 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="archive" class="text-indigo-400 w-5 h-5"></i>
+                    <h3 class="font-bold text-sm tracking-wide uppercase">Historial de Situaciones Jurídicas</h3>
+                </div>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Filtros y Botones -->
+            <div class="bg-slate-100 p-4 border-b border-slate-200 flex flex-wrap gap-3 items-center justify-between">
+                <!-- Buscador de Espectro Ampliado con Botón Físico "Buscar" -->
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <div class="relative w-full sm:w-80">
+                        <input type="text" id="history-search" placeholder="Buscar por Nombre, Cédula, NU, Expediente u Oficio..." class="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="filterHistoryTable()" onkeydown="if(event.key === 'Enter') executeHistorySearch()">
+                        <i data-lucide="search" class="absolute left-2.5 top-2.5 text-slate-400 w-4 h-4"></i>
+                    </div>
+                    <button onclick="executeHistorySearch()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition shadow" title="Buscar y cargar coincidencia exacta">
+                        <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                        <span>Buscar</span>
+                    </button>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="toggleHistoryDateSort()" class="bg-slate-700 hover:bg-slate-800 text-white transition px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow" title="Ordenar por Fecha de Petición (Ascendente/Descendente)">
+                        <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
+                        <span>Ordenar Fecha</span>
+                    </button>
+                    <button onclick="copySelectedHistoryToExcel()" class="bg-indigo-600 hover:bg-indigo-700 text-white transition px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span>Copiar para Excel</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla del Historial -->
+            <div class="flex-1 overflow-x-auto overflow-y-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200 sticky top-0">
+                        <tr>
+                            <!-- Checkbox general para selección múltiple -->
+                            <th class="p-3 w-10 text-center">
+                                <input type="checkbox" id="history-select-all" onclick="toggleSelectAllHistory(this)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer">
+                            </th>
+                            <th class="p-3">#</th>
+                            <th class="p-3">Petición</th>
+                            <th class="p-3">Nombre PPL</th>
+                            <th class="p-3">Nº Único</th>
+                            <th class="p-3">Cédula</th>
+                            <th class="p-3">Autoridad</th>
+                            <th class="p-3">Expediente</th> 
+                            <th class="p-3">Elaborado</th> 
+                            <th class="p-3">Oficio</th>
+                            <th class="p-3 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body" class="divide-y divide-slate-100 text-slate-700 animate-fade-in"></tbody>
+                </table>
+            </div>
+
+            <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 text-right text-xs text-slate-400">
+                Seleccione las casillas y presione "Copiar para Excel" o haga clic en un registro para cargarlo.
+            </div>
+        </div>
+    </div>
+
+    <!-- NUEVO MODAL: INFORME DE CUMPLIMIENTO -->
+    <div id="modal-cumplimiento" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="bg-amber-500 text-slate-900 px-5 py-4 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="alert-triangle" class="text-slate-900 w-5 h-5"></i>
+                    <h3 class="font-extrabold text-sm tracking-wide uppercase">Informe de Cumplimiento de la Pena</h3>
+                </div>
+                <button onclick="closeComplianceModal()" class="text-slate-700 hover:text-slate-900 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Filtros y Botones -->
+            <div class="bg-slate-100 p-4 border-b border-slate-200 flex flex-wrap gap-3 items-center justify-between">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <div class="relative w-full sm:w-80">
+                        <input type="text" id="compliance-search" placeholder="Buscar por Nombre, Cédula, NU, Expediente..." class="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="filterComplianceTable()" onkeydown="if(event.key === 'Enter') executeComplianceSearch()">
+                        <i data-lucide="search" class="absolute left-2.5 top-2.5 text-slate-400 w-4 h-4"></i>
+                    </div>
+                    <button onclick="executeComplianceSearch()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition shadow" title="Buscar coincidencias">
+                        <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                        <span>Buscar</span>
+                    </button>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="copySelectedComplianceToExcel()" class="bg-slate-700 hover:bg-slate-800 text-white transition px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span>Copiar para Excel</span>
+                    </button>
+                    <!-- Eliminado botón de Borrar Masivo a propósito para esta vista -->
+                </div>
+            </div>
+
+            <!-- Tabla del Historial de Cumplimiento -->
+            <div class="flex-1 overflow-x-auto overflow-y-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200 sticky top-0">
+                        <tr>
+                            <!-- Checkbox general para selección múltiple -->
+                            <th class="p-3 w-10 text-center">
+                                <input type="checkbox" id="compliance-select-all" onclick="toggleSelectAllCompliance(this)" class="rounded text-amber-500 focus:ring-amber-500 h-4 w-4 cursor-pointer">
+                            </th>
+                            <th class="p-3">#</th>
+                            <th class="p-3">Nº Único</th>
+                            <th class="p-3">Nombre PPL</th>
+                            <th class="p-3">Cédula</th>
+                            <th class="p-3">Autoridad</th>
+                            <th class="p-3">Expediente</th> 
+                            <th class="p-3">Condena Impuesta</th> 
+                            <th class="p-3">Tiempo Pendiente</th>
+                            <th class="p-3 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="compliance-table-body" class="divide-y divide-slate-100 text-slate-700 animate-fade-in"></tbody>
+                </table>
+            </div>
+
+            <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 text-right text-xs text-slate-400">
+                Identifique los privados de la libertad que ya cumplieron o están próximos a cumplir su condena.
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMACIÓN AUTOCOMPLETADO -->
+    <div id="modal-autocomplete-confirm" class="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex items-center space-x-3 text-sky-600">
+                <i data-lucide="user-check" class="w-8 h-8"></i>
+                <h3 class="font-bold text-lg text-slate-800">¡PPL Registrado Encontrado!</h3>
+            </div>
+            <div class="text-sm text-slate-600 space-y-1.5" id="autocomplete-details-text"></div>
+            <p class="text-xs text-slate-400">¿Desea autocompletar todo el formulario con la última información guardada de este PPL?</p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeAutocompleteConfirm(false)" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-xs font-semibold hover:bg-slate-200 transition">Ignorar</button>
+                <button onclick="closeAutocompleteConfirm(true)" class="bg-sky-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-sky-700 transition">Autocompletar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor Toasts -->
+    <div id="toast-container" class="fixed bottom-24 right-5 z-50 space-y-2"></div>
+
+    <script type="module">
+        // Importación de módulos Firebase desde la red global de distribución
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIGURACIÓN DE FIREBASE PERSONALIZADA
+        // Nota: Puedes pegar tus credenciales de Firebase directamente aquí si quieres que la base de datos se configure de manera automática y permanente para todos los usuarios en Netlify.
+        const MY_CUSTOM_FIREBASE_CONFIG = null; 
+
+        // Catálogos estandarizados
+        const JUZGADOS_RISARALDA = [
+            // EJECUCIÓN DE PENAS - PEREIRA
+            "JUZGADO 1 DE EJECUCION DE PENAS Y MEDIDAS DE SEGURIDAD DE PEREIRA",
+            "JUZGADO 2 DE EJECUCION DE PENAS Y MEDIDAS DE SEGURIDAD DE PEREIRA",
+            "JUZGADO 3 DE EJECUCION DE PENAS Y MEDIDAS DE SEGURIDAD DE PEREIRA",
+            "JUZGADO 4 DE EJECUCION DE PENAS Y MEDIDAS DE SEGURIDAD DE PEREIRA",
+            "JUZGADO 5 DE EJECUCION DE PENAS Y MEDIDAS DE SEGURIDAD DE PEREIRA",
+
+            // PENALES DEL CIRCUITO - PEREIRA
+            "JUZGADO 1 PENAL DEL CIRCUITO DE PEREIRA",
+            "JUZGADO 2 PENAL DEL CIRCUITO DE PEREIRA",
+            "JUZGADO 3 PENAL DEL CIRCUITO DE PEREIRA",
+            "JUZGADO 4 PENAL DEL CIRCUITO DE PEREIRA",
+            "JUZGADO 5 PENAL DEL CIRCUITO DE PEREIRA",
+            "JUZGADO 6 PENAL DEL CIRCUITO DE PEREIRA",
+
+            // PENALES DEL CIRCUITO ESPECIALIZADOS - PEREIRA
+            "JUZGADO 1 PENAL DEL CIRCUITO ESPECIALIZADO DE PEREIRA",
+            "JUZGADO 2 PENAL DEL CIRCUITO ESPECIALIZADO DE PEREIRA",
+
+            // PENALES MUNICIPALES CON FUNCION DE CONOCIMIENTO - PEREIRA
+            "JUZGADO 1 PENAL MUNICIPAL CON FUNCION DE CONOCIMIENTO DE PEREIRA",
+            "JUZGADO 2 PENAL MUNICIPAL CON FUNCION DE CONOCIMIENTO DE PEREIRA",
+            "JUZGADO 3 PENAL MUNICIPAL CON FUNCION DE CONOCIMIENTO DE PEREIRA",
+            "JUZGADO 4 PENAL MUNICIPAL CON FUNCION DE CONOCIMIENTO DE PEREIRA",
+            "JUZGADO 5 PENAL MUNICIPAL CON FUNCION DE CONOCIMIENTO DE PEREIRA",
+            "JUZGADO 6 PENAL MUNICIPAL CON FUNCION DE CONOCIMIENTO DE PEREIRA",
+
+            // PENALES MUNICIPALES CON FUNCION DE CONTROL DE GARANTIAS - PEREIRA
+            "JUZGADO 1 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 2 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 3 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 4 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 5 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 6 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 7 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 8 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+
+            // ADOLESCENTES - PEREIRA
+            "JUZGADO 1 PENAL MUNICIPAL PARA ADOLESCENTES CON FUNCION DE CONTROL DE GARANTIAS DE PEREIRA",
+            "JUZGADO 1 PENAL DEL CIRCUITO PARA ADOLESCENTES CON FUNCION DE CONOCIMIENTO DE PEREIRA",
+
+            // DOSQUEBRADAS
+            "JUZGADO 1 PENAL MUNICIPAL DE DOSQUEBRADAS",
+            "JUZGADO 2 PENAL MUNICIPAL DE DOSQUEBRADAS",
+            "JUZGADO 3 PENAL MUNICIPAL DE DOSQUEBRADAS",
+            "JUZGADO 1 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE DOSQUEBRADAS",
+            "JUZGADO 2 PENAL MUNICIPAL CON FUNCION DE CONTROL DE GARANTIAS DE DOSQUEBRADAS",
+            "JUZGADO 1 PENAL DEL CIRCUITO DE DOSQUEBRADAS",
+            "JUZGADO 2 PENAL DEL CIRCUITO DE DOSQUEBRADAS",
+
+            // SANTA ROSA DE CABAL
+            "JUZGADO PENAL MUNICIPAL DE SANTA ROSA DE CABAL",
+            "JUZGADO PENAL DEL CIRCUITO DE SANTA ROSA DE CABAL",
+            "JUZGADO PROMISCUO MUNICIPAL DE SANTA ROSA DE CABAL",
+
+            // LA VIRGINIA
+            "JUZGADO PENAL MUNICIPAL DE LA VIRGINIA",
+            "JUZGADO PROMISCUO DEL CIRCUITO DE LA VIRGINIA",
+
+            // BELEN DE UMBRIA
+            "JUZGADO PROMISCUO MUNICIPAL DE BELEN DE UMBRIA",
+            "JUZGADO PROMISCUO DEL CIRCUITO DE BELEN DE UMBRIA",
+
+            // QUINCHIA
+            "JUZGADO PROMISCUO MUNICIPAL DE QUINCHIA",
+            "JUZGADO PROMISCUO DEL CIRCUITO DE QUINCHIA",
+
+            // APIA
+            "JUZGADO PROMISCUO MUNICIPAL DE APIA",
+
+            // BALBOA
+            "JUZGADO PROMISCUO MUNICIPAL DE BALBOA",
+
+            // GUATICA
+            "JUZGADO PROMISCUO MUNICIPAL DE GUATICA",
+            "JUZGADO PROMISCUO DEL CIRCUITO DE GUATICA",
+
+            // LA CELIA
+            "JUZGADO PROMISCUO MUNICIPAL DE LA CELIA",
+
+            // MARSELLA
+            "JUZGADO PROMISCUO MUNICIPAL DE MARSELLA",
+
+            // MISTRATO
+            "JUZGADO PROMISCUO MUNICIPAL DE MISTRATO",
+            "JUZGADO PROMISCUO DEL CIRCUITO DE MISTRATO",
+
+            // PUEBLO RICO
+            "JUZGADO PROMISCUO MUNICIPAL DE PUEBLO RICO",
+
+            // SANTUARIO
+            "JUZGADO PROMISCUO MUNICIPAL DE SANTUARIO",
+
+            // TRIBUNAL
+            "TRIBUNAL SUPERIOR DEL DISTRITO JUDICIAL DE PEREIRA - SALA PENAL"
+        ];
+
+        const DELITOS_CODIGO_PENAL = [
+            "HOMICIDIO",
+            "FEMINICIDIO",
+            "HOMICIDIO POR PIEDAD",
+            "INDUCCIÓN O AYUDA AL SUICIDIO",
+            "HOMICIDIO CULPOSO",
+            "LESIONES PERSONALES",
+            "LESIONES PERSONALES CULPOSAS",
+            "ABORTO",
+            "ABORTO SIN CONSENTIMIENTO",
+            "OMISIÓN DE SOCORRO",
+            "MANIPULACIÓN GENÉTICA",
+            "CLONACIÓN HUMANA",
+            "TRÁFICO DE ÓRGANOS",
+            "ACCESO CARNAL VIOLENTO",
+            "ACTO SEXUAL VIOLENTO",
+            "ACOSO SEXUAL",
+            "ACCESO CARNAL ABUSIVO CON MENOR DE CATORCE AÑOS",
+            "ACTOS SEXUALES CON MENOR DE CATORCE AÑOS",
+            "PORNOGRAFÍA CON PERSONAS MENORES DE 18 AÑOS",
+            "TURISMO SEXUAL",
+            "INJURIA",
+            "CALUMNIA",
+            "VIOLENCIA INTRAFAMILIAR",
+            "MALTRATO MEDIANTE RESTRICCIÓN A LA LIBERTAD FÍSICA",
+            "TRATA DE PERSONAS",
+            "SECUESTRO SIMPLE",
+            "SECUESTRO EXTORSIVO",
+            "DESAPARICIÓN FORZADA",
+            "DETENCIÓN ARBITRARIA",
+            "VIOLACIÓN DE HABITACIÓN AJENA",
+            "VIOLACIÓN ILÍCITA DE COMUNICACIONES",
+            "ACCESO ABUSIVO A UN SISTEMA INFORMÁTICO",
+            "DAÑO INFORMÁTICO",
+            "USO DE SOFTWARE MALICIOSO",
+            "VIOLACIÓN DE DATOS PERSONALES",
+            "SUPLANTACIÓN DE SITIOS WEB PARA CAPTURAR DATOS PERSONALES",
+            "HURTO",
+            "HURTO CALIFICADO",
+            "HURTO AGRAVADO",
+            "ABIGEATO",
+            "EXTORSIÓN",
+            "CHANTAJE",
+            "ESTAFA",
+            "FRAUDE MEDIANTE CHEQUE",
+            "ABUSO DE CONFIANZA",
+            "CORRUPCIÓN PRIVADA",
+            "ADMINISTRACIÓN DESLEAL",
+            "UTILIZACIÓN INDEBIDA DE INFORMACIÓN PRIVILEGIADA",
+            "ALZAMIENTO DE BIENES",
+            "DEFRAUDACIÓN DE FLUIDOS",
+            "USURPACIÓN DE TIERRAS",
+            "USURPACIÓN DE AGUAS",
+            "INVASIÓN DE TIERRAS O EDIFICACIONES",
+            "DAÑO EN BIEN AJENO",
+            "USURA",
+            "RECEPTACIÓN",
+            "CAPTACIÓN MASIVA Y HABITUAL DE DINEROS",
+            "PÁNICO ECONÓMICO",
+            "USURPACIÓN DE DERECHOS DE PROPIEDAD INDUSTRIAL",
+            "LAVADO DE ACTIVOS",
+            "ENRIQUECIMIENTO ILÍCITO DE PARTICULARES",
+            "CONCIERTO PARA DELINQUIR",
+            "CONCIERTO PARA DELINQUIR AGRAVADO",
+            "TERRORISMO",
+            "FINANCIACIÓN DEL TERRORISMO",
+            "AMENAZAS",
+            "INSTIGACIÓN A DELINQUIR",
+            "INCENDIO",
+            "PERTURBACIÓN EN SERVICIO DE TRANSPORTE PÚBLICO",
+            "FABRICACIÓN, TRÁFICO Y PORTE DE ARMAS DE FUEGO O MUNICIONES",
+            "FABRICACIÓN, TRÁFICO Y PORTE DE ARMAS Y MUNICIONES DE USO PRIVATIVO DE LAS FUERZAS ARMADAS",
+            "FABRICACIÓN, IMPORTACIÓN, TRÁFICO, POSESIÓN Y USO DE ARMAS QUÍMICAS",
+            "TRÁFICO, FABRICACIÓN O PORTE DE ESTUPEFACIENTES",
+            "DESTINACIÓN ILÍCITA DE MUEBLES O INMUEBLES",
+            "CONSERVACIÓN O FINANCIACIÓN DE PLANTACIONES",
+            "TRÁFICO DE SUSTANCIAS PARA PROCESAMIENTO DE NARCÓTICOS",
+            "VIOLACIÓN DE MEDIDAS SANITARIAS",
+            "PROPAGACIÓN DE EPIDEMIA",
+            "CONTAMINACIÓN AMBIENTAL",
+            "ILÍCITO APROVECHAMIENTO DE LOS RECURSOS NATURALES RENOVABLES",
+            "EXPLOTACIÓN ILÍCITA DE YACIMIENTO MINERO",
+            "MALTRATO ANIMAL",
+            "PECULADO POR APROPIACIÓN",
+            "PECULADO POR USO",
+            "PECULADO CULPOSO",
+            "CONCUSIÓN",
+            "COHECHO PROPIO",
+            "COHECHO IMPROPIO",
+            "COHECHO POR DAR U OFRECER",
+            "INTERÉS INDEBIDO EN LA CELEBRACIÓN DE CONTRATOS",
+            "CONTRATO SIN CUMPLIMIENTO DE REQUISITOS LEGALES",
+            "TRÁFICO DE INFLUENCIAS DE SERVIDOR PÚBLICO",
+            "ENRIQUECIMIENTO ILÍCITO",
+            "PREVARICATO POR ACCIÓN",
+            "PREVARICATO POR OMISIÓN",
+            "ABUSO DE AUTORIDAD",
+            "REVELACIÓN DE SECRETO",
+            "USURPACIÓN DE FUNCIONES PÚBLICAS",
+            "VIOLENCIA CONTRA SERVIDOR PÚBLICO",
+            "FUGA DE PRESOS",
+            "FAVORECIMIENTO DE FUGA DE PRESOS",
+            "FRAUDE PROCESAL",
+            "FALSO TESTIMONIO",
+            "SOBORNO",
+            "ENCUBRIMIENTO",
+            "FAVORECIMIENTO",
+            "FRAUDE A RESOLUCIÓN JUDICIAL",
+            "INASISTENCIA ALIMENTARIA",
+            "GENOCIDIO",
+            "TORTURA",
+            "DESPLAZAMIENTO FORZADO",
+            "HOMICIDIO EN PERSONA PROTEGIDA",
+            "TOMA DE REHENES",
+            "REBELIÓN",
+            "SEDICIÓN",
+            "ASONADA",
+            "CONSPIRACIÓN",
+            "ESPIONAJE",
+            "TRAICIÓN A LA PATRIA",
+            "FALSEDAD EN DOCUMENTO PRIVADO",
+            "FALSEDAD IDEOLÓGICA EN DOCUMENTO PÚBLICO",
+            "FALSEDAD MATERIAL EN DOCUMENTO PÚBLICO",
+            "USO DE DOCUMENTO FALSO",
+            "DESTRUCCIÓN, SUPRESIÓN U OCULTAMIENTO DE DOCUMENTO PÚBLICO",
+            "FALSIFICACIÓN DE MONEDA NACIONAL O EXTRANJERA",
+            "TRÁFICO DE MONEDA FALSIFICADA",
+            "CONTRABANDO",
+            "FAVORECIMIENTO Y FACILITACIÓN DEL CONTRABANDO",
+            "FRAUDE ADUANERO",
+            "DEFRAUDACIÓN TRIBUTARIA",
+            "RECLUTAMIENTO ILÍCITO",
+            "USO DE MENORES DE EDAD PARA LA COMISIÓN DE DELITOS",
+            "CONSTREÑIMIENTO ILEGAL",
+            "CONSTREÑIMIENTO PARA DELINQUIR",
+            "TORTURA EN PERSONA PROTEGIDA",
+            "ACTOS DE TERRORISMO",
+            "PROSTITUCIÓN FORZADA O ESCLAVITUD SEXUAL",
+            "UTILIZACIÓN DE MÉTODOS DE GUERRA ILÍCITOS",
+            "PERFIDIA",
+            "ACTOS DE RACISMO O DISCRIMINACIÓN"
+        ];
+
+        // NUEVO: Lista de delitos excluidos para el beneficio de 72h según Art. 68A
+        const DELITOS_EXCLUIDOS_72H = [
+            "PECULADO POR APROPIACIÓN", "PECULADO POR USO", "PECULADO CULPOSO", "CONCUSIÓN", 
+            "COHECHO PROPIO", "COHECHO IMPROPIO", "COHECHO POR DAR U OFRECER", 
+            "INTERÉS INDEBIDO EN LA CELEBRACIÓN DE CONTRATOS", "CONTRATO SIN CUMPLIMIENTO DE REQUISITOS LEGALES", 
+            "TRÁFICO DE INFLUENCIAS DE SERVIDOR PÚBLICO", "ENRIQUECIMIENTO ILÍCITO", "PREVARICATO POR ACCIÓN", 
+            "PREVARICATO POR OMISIÓN", "ABUSO DE AUTORIDAD", "REVELACIÓN DE SECRETO", "USURPACIÓN DE FUNCIONES PÚBLICAS",
+            "GENOCIDIO", "APOLOGÍA DEL GENOCIDIO", "DESAPARICIÓN FORZADA", "DESPLAZAMIENTO FORZADO", 
+            "TORTURA EN PERSONA PROTEGIDA", "HOMICIDIO EN PERSONA PROTEGIDA", "TOMA DE REHENES", 
+            "ACTOS DE TERRORISMO", "PROSTITUCIÓN FORZADA O ESCLAVITUD SEXUAL", "UTILIZACIÓN DE MÉTODOS DE GUERRA ILÍCITOS", 
+            "PERFIDIA", "RECLUTAMIENTO ILÍCITO", "AYUDA E INSTIGACIÓN AL EMPLEO, PRODUCCIÓN Y TRANSFERENCIA DE MINAS ANTIPERSONAL",
+            "ACCESO CARNAL VIOLENTO", "ACTO SEXUAL VIOLENTO", "ACOSO SEXUAL", 
+            "ACCESO CARNAL ABUSIVO CON MENOR DE CATORCE AÑOS", "ACTOS SEXUALES CON MENOR DE CATORCE AÑOS", 
+            "PORNOGRAFÍA CON PERSONAS MENORES DE 18 AÑOS", "TURISMO SEXUAL", "TRATA DE PERSONAS",
+            "ESTAFA", "ABUSO DE CONFIANZA", "CAPTACIÓN MASIVA Y HABITUAL DE DINEROS", 
+            "UTILIZACIÓN INDEBIDA DE INFORMACIÓN PRIVILEGIADA", "CONCIERTO PARA DELINQUIR AGRAVADO", 
+            "LAVADO DE ACTIVOS", "VIOLENCIA INTRAFAMILIAR", "HURTO CALIFICADO", "EXTORSIÓN", 
+            "VIOLACIÓN ILÍCITA DE COMUNICACIONES", "ENRIQUECIMIENTO ILÍCITO DE PARTICULARES", 
+            "RECEPTACIÓN", "INSTIGACIÓN A DELINQUIR", "EMPLEO O LANZAMIENTO DE SUSTANCIAS U OBJETOS PELIGROSOS", 
+            "FABRICACIÓN, IMPORTACIÓN, TRÁFICO, POSESIÓN Y USO DE ARMAS QUÍMICAS", "TRÁFICO, FABRICACIÓN O PORTE DE ESTUPEFACIENTES", 
+            "ESPIONAJE", "REBELIÓN", "USURPACIÓN DE TIERRAS", "FALSIFICACIÓN DE MONEDA NACIONAL O EXTRANJERA", "FEMINICIDIO",
+            "SOBORNO TRANSNACIONAL", "TRÁFICO DE MIGRANTES", "TESTAFERRATO", 
+            "APODERAMIENTO DE HIDROCARBUROS, SUS DERIVADOS, BIOCOMBUSTIBLES O MEZCLAS", "EXPORTACIÓN O IMPORTACIÓN FICTICIA", 
+            "EVASIÓN FISCAL", "NEGATIVA DE REINTEGRO", "CONTRABANDO AGRAVADO", "CONTRABANDO DE HIDROCARBUROS Y SUS DERIVADOS",
+            "SECUESTRO SIMPLE", "SECUESTRO EXTORSIVO", "TORTURA", "TERRORISMO", 
+            "FINANCIACIÓN DEL TERRORISMO", "CONCIERTO PARA DELINQUIR"
+        ];
+
+        // NUEVO: Lista de delitos excluidos para la Prisión Domiciliaria (Art. 38G / entre otros) - LISTA EXTENDIDA DE SEXUALES
+        const DELITOS_EXCLUIDOS_DOMICILIARIA = [
+            "GENOCIDIO",
+            "DELITOS CONTRA EL DERECHO INTERNACIONAL HUMANITARIO",
+            "DESAPARICIÓN FORZADA",
+            "SECUESTRO EXTORSIVO",
+            "TORTURA",
+            "DESPLAZAMIENTO FORZADO",
+            "TRÁFICO DE MENORES",
+            "USO DE MENORES DE EDAD PARA LA COMISIÓN DE DELITOS",
+            "TRÁFICO DE MIGRANTES",
+            "TRATA DE PERSONAS",
+            
+            // DELITOS CONTRA LA LIBERTAD, INTEGRIDAD Y FORMACIÓN SEXUAL (Actualizados)
+            "ACCESO CARNAL VIOLENTO",
+            "ACTO SEXUAL VIOLENTO",
+            "ACCESO CARNAL O ACTO SEXUAL EN PERSONA PUESTA EN INCAPACIDAD DE RESISTIR",
+            "ACOSO SEXUAL",
+            "ACCESO CARNAL ABUSIVO CON MENOR DE CATORCE AÑOS",
+            "ACTOS SEXUALES CON MENOR DE CATORCE AÑOS",
+            "ACCESO CARNAL O ACTO SEXUAL ABUSIVO CON INCAPAZ DE RESISTIR",
+            "INSEMINACIÓN ARTIFICIAL O TRANSFERENCIA DE ÓVULO FECUNDADO NO CONSENTIDAS",
+            "TRÁFICO DE MENORES DE EDAD",
+            "PROXENETISMO CON MENOR DE EDAD",
+            "ESTÍMULO A LA PROSTITUCIÓN DE MENORES",
+            "DEMANDA DE EXPLOTACIÓN SEXUAL COMERCIAL DE PERSONA MENOR DE 18 AÑOS",
+            "PORNOGRAFÍA CON PERSONAS MENORES DE 18 AÑOS",
+            "TURISMO SEXUAL",
+            "UTILIZACIÓN O FACILITACIÓN DE MEDIOS DE COMUNICACIÓN PARA OFRECER ACTIVIDADES SEXUALES CON MENORES",
+
+            "EXTORSIÓN",
+            "CONCIERTO PARA DELINQUIR AGRAVADO",
+            "LAVADO DE ACTIVOS",
+            "TERRORISMO",
+            "USURPACIÓN Y ABUSO DE FUNCIONES PÚBLICAS CON FINES TERRORISTAS",
+            "FINANCIACIÓN DEL TERRORISMO Y DE ACTIVIDADES DE DELINCUENCIA ORGANIZADA",
+            "ADMINISTRACIÓN DE RECURSOS CON ACTIVIDADES TERRORISTAS Y DE DELINCUENCIA ORGANIZADA",
+            "FINANCIACIÓN DEL TERRORISMO Y ADMINISTRACIÓN DE RECURSOS RELACIONADOS CON ACTIVIDADES TERRORISTAS",
+            "FABRICACIÓN, TRÁFICO Y PORTE DE ARMAS Y MUNICIONES DE USO RESTRINGIDO",
+            "USO PRIVATIVO DE LAS FUERZAS ARMADAS",
+            "EXPLOSIVOS",
+            "PECULADO POR APROPIACIÓN",
+            "CONCUSIÓN",
+            "COHECHO PROPIO",
+            "COHECHO IMPROPIO",
+            "COHECHO POR DAR U OFRECER",
+            "INTERÉS INDEBIDO EN LA CELEBRACIÓN DE CONTRATOS",
+            "CONTRATO SIN CUMPLIMIENTO DE REQUISITOS LEGALES",
+            "ACUERDOS RESTRICTIVOS DE LA COMPETENCIA",
+            "TRÁFICO DE INFLUENCIAS DE SERVIDOR PÚBLICO",
+            "ENRIQUECIMIENTO ILÍCITO",
+            "PREVARICATO POR ACCIÓN",
+            "FALSO TESTIMONIO",
+            "SOBORNO",
+            "SOBORNO EN LA ACTUACIÓN PENAL",
+            "AMENAZAS A TESTIGO",
+            "OCULTAMIENTO, ALTERACIÓN O DESTRUCCIÓN DE ELEMENTO MATERIAL PROBATORIO",
+            "DELITOS QUE AFECTEN EL PATRIMONIO DEL ESTADO",
+            "FEMINICIDIO"
+        ];
+
+        // NUEVO: Lista de delitos excluidos para la Libertad Condicional
+        const DELITOS_EXCLUIDOS_CONDICIONAL = [
+            // DIH y similares
+            "HOMICIDIO EN PERSONA PROTEGIDA",
+            "LESIONES EN PERSONA PROTEGIDA",
+            "TORTURA EN PERSONA PROTEGIDA",
+            "ACCESO CARNAL VIOLENTO EN PERSONA PROTEGIDA",
+            "ACTOS SEXUALES VIOLENTOS EN PERSONA PROTEGIDA",
+            "PROSTITUCIÓN FORZADA O ESCLAVITUD SEXUAL",
+            "UTILIZACIÓN DE MEDIOS Y MÉTODOS DE GUERRA ILÍCITOS",
+            "PERFIDIA",
+            "ACTOS DE TERRORISMO",
+            "TOMA DE REHENES",
+            "DESPLAZAMIENTO FORZADO",
+            "DEPORTACIÓN, EXPULSIÓN, TRASLADO O DESPLAZAMIENTO FORZADO DE POBLACIÓN CIVIL",
+            "RECLUTAMIENTO ILÍCITO",
+            "DESTRUCCIÓN Y APROPIACIÓN DE BIENES PROTEGIDOS",
+            "ATAQUES CONTRA BIENES PROTEGIDOS",
+            "ATAQUES CONTRA OBRAS E INSTALACIONES QUE CONTIENEN FUERZAS PELIGROSAS",
+            "REPRESALIAS CONTRA PERSONAS Y BIENES PROTEGIDOS",
+            "SAQUEO",
+            "OMISIÓN DE MEDIDAS DE SOCORRO Y ASISTENCIA HUMANITARIA",
+            "OBSTACULIZACIÓN DE TAREAS SANITARIAS Y HUMANITARIAS",
+            "UTILIZACIÓN ILÍCITA DE EMBLEMAS Y SEÑALES PROTECTORAS",
+            "GENOCIDIO",
+            "APOLOGÍA DEL GENOCIDIO",
+            "DESAPARICIÓN FORZADA",
+
+            // SECUESTRO Y EXTORSIÓN
+            "SECUESTRO SIMPLE",
+            "SECUESTRO EXTORSIVO",
+            "SECUESTRO AGRAVADO",
+            "EXTORSIÓN",
+
+            // DELITOS CONTRA LA LIBERTAD, INTEGRIDAD Y FORMACIÓN SEXUAL
+            "ACCESO CARNAL VIOLENTO",
+            "ACTO SEXUAL VIOLENTO",
+            "ACCESO CARNAL O ACTO SEXUAL EN PERSONA PUESTA EN INCAPACIDAD DE RESISTIR",
+            "ACOSO SEXUAL",
+            "ACCESO CARNAL ABUSIVO CON MENOR DE CATORCE AÑOS",
+            "ACTOS SEXUALES CON MENOR DE CATORCE AÑOS",
+            "ACCESO CARNAL O ACTO SEXUAL ABUSIVO CON INCAPAZ DE RESISTIR",
+            "INSEMINACIÓN ARTIFICIAL O TRANSFERENCIA DE ÓVULO FECUNDADO NO CONSENTIDAS",
+            "TRÁFICO DE MENORES DE EDAD",
+            "PROXENETISMO CON MENOR DE EDAD",
+            "ESTÍMULO A LA PROSTITUCIÓN DE MENORES",
+            "DEMANDA DE EXPLOTACIÓN SEXUAL COMERCIAL DE PERSONA MENOR DE 18 AÑOS",
+            "PORNOGRAFÍA CON PERSONAS MENORES DE 18 AÑOS",
+            "TURISMO SEXUAL",
+            "UTILIZACIÓN O FACILITACIÓN DE MEDIOS DE COMUNICACIÓN PARA OFRECER ACTIVIDADES SEXUALES CON MENORES"
+        ];
+
+
+        let pplDatabase = JSON.parse(localStorage.getItem('ppl_database') || '{}');
+        let reportHistory = JSON.parse(localStorage.getItem('report_history') || '[]');
+        let activeCalculatorTab = 'TRABAJO';
+        let calculatedPPLData = null;
+        let historySortOrder = 'desc'; // NUEVO: Estado para el orden de la tabla de historial
+
+        let currentPPLHours = {
+            TRABAJO: Array(20).fill(0),
+            ESTUDIO: Array(20).fill(0),
+            ENSEÑANZA: Array(20).fill(0)
+        };
+
+        // Sincronización
+        let isCloudActive = false;
+        let db = null;
+        let auth = null;
+        let appId = typeof __app_id !== 'undefined' ? __app_id : 'asistente-sj-15';
+        let currentUser = null;
+
+        // Comprobación de configuración de Firebase (Entorno Canvas -> Hardcoded -> LocalStorage)
+        let firebaseConfig = null;
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            firebaseConfig = JSON.parse(__firebase_config);
+        } else if (MY_CUSTOM_FIREBASE_CONFIG) {
+            firebaseConfig = MY_CUSTOM_FIREBASE_CONFIG;
+        } else {
+            const savedConfig = localStorage.getItem('custom_firebase_config');
+            if (savedConfig) {
+                try {
+                    firebaseConfig = JSON.parse(savedConfig);
+                } catch(e) {
+                    console.error("Configuración de Firebase inválida:", e);
+                }
+            }
+        }
+
+        if (firebaseConfig) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                isCloudActive = true;
+            } catch (e) {
+                console.error("Fallo al iniciar base de datos Firebase:", e);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            try { lucide.createIcons(); } catch(e) { console.error(e); }
+            try { initializeLicenseBar(); } catch(e) { console.error(e); }
+            try { generateRedemptionFields(); } catch(e) { console.error(e); }
+            try { setupAutocompleteEvents(); } catch(e) { console.error(e); }
+            
+            try {
+                document.getElementById('rep-fecha-solicitud').value = new Date().toISOString().substring(0, 10);
+                document.getElementById('rep-codigo-interno').value = `616-1.7-CPMSPEI-JURIDICA-${reportHistory.length + 10}`;
+            } catch(e) { console.error(e); }
+        });
+
+        function initializeLicenseBar() {
+            const now = new Date();
+            const expirationDate = new Date("2026-11-15");
+            const diffTime = expirationDate - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const badge = document.getElementById('days-left');
+            if (badge) {
+                if (diffDays > 0) {
+                    badge.textContent = `${diffDays} días restantes`;
+                } else {
+                    badge.textContent = `CADUCADO`;
+                    badge.className = "bg-rose-700 px-2 py-0.5 rounded text-[10px] text-white font-bold";
+                    showToast("Su licencia de uso ha caducado. Por favor, contacte al autor.", "error");
+                }
+            }
+        }
+
+        function generateRedemptionFields() {
+            const wrapper = document.getElementById('redenciones-rows-wrapper');
+            if (!wrapper) return;
+            wrapper.innerHTML = '';
+            for (let i = 1; i <= 30; i++) {
+                const row = document.createElement('div');
+                row.className = "grid grid-cols-12 gap-1.5 items-center";
+                row.innerHTML = `
+                    <div class="col-span-1 text-center text-[10px] font-bold text-slate-400">${i}</div>
+                    <input type="text" id="red-auto-${i}" placeholder="Auto" class="col-span-3 bg-white border border-slate-200 rounded px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-rose-500">
+                    <input type="date" id="red-fecha-${i}" class="col-span-4 bg-white border border-slate-200 rounded px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-rose-500">
+                    <input type="number" id="red-a-${i}" placeholder="A" min="0" class="col-span-1 bg-white border border-slate-200 rounded px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-rose-500" onchange="sumRedemptionTotals()" oninput="sumRedemptionTotals()">
+                    <input type="number" id="red-m-${i}" placeholder="M" min="0" max="11" class="col-span-1 bg-white border border-slate-200 rounded px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-rose-500" onchange="sumRedemptionTotals()" oninput="sumRedemptionTotals()">
+                    <input type="number" id="red-d-${i}" placeholder="D" min="0" max="29" class="col-span-2 bg-white border border-slate-200 rounded px-1 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-rose-500" onchange="sumRedemptionTotals()" oninput="sumRedemptionTotals()">
+                `;
+                wrapper.appendChild(row);
+            }
+        }
+
+        function sumRedemptionTotals() {
+            let totalDays = 0;
+            for (let i = 1; i <= 30; i++) {
+                const elA = document.getElementById(`red-a-${i}`);
+                const elM = document.getElementById(`red-m-${i}`);
+                const elD = document.getElementById(`red-d-${i}`);
+                const a = elA ? (parseInt(elA.value, 10) || 0) : 0;
+                const m = elM ? (parseInt(elM.value, 10) || 0) : 0;
+                const d = elD ? (parseInt(elD.value, 10) || 0) : 0;
+                totalDays += (a * 360) + (m * 30) + d;
+            }
+            const displayValue = format360DaysEquivalent(totalDays);
+            
+            const elTotalDisplay = document.getElementById('redemption-total-display');
+            const elCalcTotals = document.getElementById('calc-redenciones-totales');
+            if (elTotalDisplay) elTotalDisplay.textContent = displayValue;
+            if (elCalcTotals) elCalcTotals.textContent = displayValue;
+            
+            return totalDays;
+        }
+
+        function parseDateSecure(dateStr) {
+            if (!dateStr || typeof dateStr !== 'string') return null;
+            dateStr = dateStr.trim();
+            if (!dateStr) return null;
+
+            let matchYMD = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (matchYMD) {
+                const year = parseInt(matchYMD[1], 10);
+                const month = parseInt(matchYMD[2], 10) - 1;
+                const day = parseInt(matchYMD[3], 10);
+                return new Date(year, month, day);
+            }
+
+            let matchDMY = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (matchDMY) {
+                const day = parseInt(matchDMY[1], 10);
+                const month = parseInt(matchDMY[2], 10) - 1;
+                const year = parseInt(matchDMY[3], 10);
+                return new Date(year, month, day);
+            }
+
+            const fallbackDate = new Date(dateStr);
+            return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+        }
+
+        function formatToYMDInput(dateStr) {
+            const date = parseDateSecure(dateStr);
+            if (!date) return '';
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function calculate360Difference(startStr, endStr) {
+            if (!startStr || !endStr) return 0;
+            const start = parseDateSecure(startStr);
+            const end = parseDateSecure(endStr);
+            if (!start || !end || start > end) return 0;
+
+            const yearsDiff = end.getFullYear() - start.getFullYear();
+            const monthsDiff = end.getMonth() - start.getMonth();
+            const daysDiff = end.getDate() - start.getDate();
+
+            return (yearsDiff * 360) + (monthsDiff * 30) + daysDiff;
+        }
+
+        function format360DaysEquivalent(totalDays) {
+            const months = Math.floor(totalDays / 30);
+            const days = totalDays % 30;
+            return `${months} meses ${days} días`;
+        }
+
+        function format360DaysYMD(totalDays) {
+            const years = Math.floor(totalDays / 360);
+            const remaining = totalDays % 360;
+            const months = Math.floor(remaining / 30);
+            const days = remaining % 30;
+            return `${years} años ${months} meses ${days} días`;
+        }
+
+        function calculateDetentionDays(periodNo) {
+            const elIni = document.getElementById(`det-ant-ini-${periodNo}`);
+            const elFin = document.getElementById(`det-ant-fin-${periodNo}`);
+            const elDisplay = document.getElementById(`det-ant-res-${periodNo}-display`);
+            
+            if (elIni && elFin && elDisplay && elIni.value && elFin.value) {
+                const diff = calculate360Difference(elIni.value, elFin.value);
+                elDisplay.textContent = `${format360DaysEquivalent(diff)} / ${format360DaysYMD(diff)}`;
+                runCalculations();
+            } else if (elDisplay) {
+                elDisplay.textContent = "--";
+            }
+        }
+
+        function runCalculations() {
+            const elFechaCaptura = document.getElementById('proc-fecha-captura');
+            if (!elFechaCaptura) return;
+            const fechaCapturaStr = elFechaCaptura.value;
+            if (!fechaCapturaStr) {
+                resetDashboard();
+                return;
+            }
+
+            const getNumVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? (parseInt(el.value, 10) || 0) : 0;
+            };
+
+            const getStrVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? el.value.trim() : '';
+            };
+
+            const cAnos = getNumVal('proc-condena-anos');
+            const cMeses = getNumVal('proc-condena-meses');
+            const cDias = getNumVal('proc-condena-dias');
+            const totalCondenaDias = (cAnos * 360) + (cMeses * 30) + cDias;
+
+            const hoyStr = new Date().toISOString().substring(0, 10);
+            const tiempoFisicoActualDias = calculate360Difference(fechaCapturaStr, hoyStr);
+
+            const detAnt1 = calculate360Difference(getStrVal('det-ant-ini-1'), getStrVal('det-ant-fin-1'));
+            const detAnt2 = calculate360Difference(getStrVal('det-ant-ini-2'), getStrVal('det-ant-fin-2'));
+            const totalDetencionesAnterioresDias = detAnt1 + detAnt2;
+
+            const totalRedencionesDias = sumRedemptionTotals();
+
+            const totalFisicoDescontadoDias = tiempoFisicoActualDias + totalDetencionesAnterioresDias;
+            const tiempoEfectivoDias = totalFisicoDescontadoDias + totalRedencionesDias;
+            const tiempoRestanteDias = totalCondenaDias - tiempoEfectivoDias;
+
+            const elCondenaTotal = document.getElementById('calc-condena-total');
+            if (elCondenaTotal) {
+                if (totalCondenaDias > 0) {
+                    elCondenaTotal.textContent = `${format360DaysEquivalent(totalCondenaDias)} (${cAnos} años ${cMeses} meses ${cDias} días)`;
+                } else {
+                    elCondenaTotal.textContent = '--';
+                }
+            }
+
+            const elFisico = document.getElementById('calc-fisico-actual');
+            const elDetAnt = document.getElementById('calc-det-anterior');
+            const elCumplido = document.getElementById('calc-tiempo-cumplido');
+            const elRestante = document.getElementById('calc-tiempo-restante');
+
+            if (elFisico) elFisico.textContent = format360DaysEquivalent(tiempoFisicoActualDias);
+            if (elDetAnt) elDetAnt.textContent = format360DaysEquivalent(totalDetencionesAnterioresDias);
+            if (elCumplido) elCumplido.textContent = `${format360DaysEquivalent(tiempoEfectivoDias)} (${format360DaysYMD(tiempoEfectivoDias)})`;
+            
+            if (elRestante) {
+                if (tiempoRestanteDias <= 0) {
+                    elRestante.textContent = `PENA CUMPLIDA (${format360DaysEquivalent(Math.abs(tiempoRestanteDias))} extra)`;
+                    elRestante.className = "block text-sm font-extrabold text-rose-500 animate-pulse";
+                } else {
+                    elRestante.textContent = format360DaysEquivalent(tiempoRestanteDias);
+                    elRestante.className = "block text-sm font-extrabold text-emerald-400";
+                }
+            }
+
+            const req72h = Math.round(totalCondenaDias * 0.30);
+            const reqDom = Math.round(totalCondenaDias * 0.50);
+            const reqCond = Math.round(totalCondenaDias * 0.60);
+
+            const el72h = document.getElementById('req-72h-display');
+            const elDom = document.getElementById('req-dom-display');
+            const elCond = document.getElementById('req-cond-display');
+
+            if (el72h) el72h.textContent = format360DaysEquivalent(req72h);
+            if (elDom) elDom.textContent = format360DaysEquivalent(reqDom);
+            if (elCond) elCond.textContent = format360DaysEquivalent(reqCond);
+
+            // NUEVO: Verificación de exclusión de beneficios (72h, Domiciliaria y Condicional)
+            const delitoInput = getStrVal('proc-delito').toUpperCase();
+            let excluido72h = false;
+            let excluidoDom = false;
+            let excluidoCond = false;
+            
+            // Busca si dentro del input del delito existe una coincidencia con la lista de excluidos (Permiso 72H)
+            for (let i = 0; i < DELITOS_EXCLUIDOS_72H.length; i++) {
+                if (delitoInput.includes(DELITOS_EXCLUIDOS_72H[i])) {
+                    excluido72h = true;
+                    break;
+                }
+            }
+
+            // Busca si dentro del input del delito existe una coincidencia con la lista de excluidos (Prisión Domiciliaria)
+            for (let i = 0; i < DELITOS_EXCLUIDOS_DOMICILIARIA.length; i++) {
+                if (delitoInput.includes(DELITOS_EXCLUIDOS_DOMICILIARIA[i])) {
+                    excluidoDom = true;
+                    break;
+                }
+            }
+
+            // Busca si dentro del input del delito existe una coincidencia con la lista de excluidos (Libertad Condicional)
+            for (let i = 0; i < DELITOS_EXCLUIDOS_CONDICIONAL.length; i++) {
+                if (delitoInput.includes(DELITOS_EXCLUIDOS_CONDICIONAL[i])) {
+                    excluidoCond = true;
+                    break;
+                }
+            }
+
+            updateBenefitBadge('status-72h-badge', tiempoEfectivoDias >= req72h, excluido72h);
+            updateBenefitBadge('status-dom-badge', tiempoEfectivoDias >= reqDom, excluidoDom);
+            updateBenefitBadge('status-cond-badge', tiempoEfectivoDias >= reqCond, excluidoCond);
+
+            calculatedPPLData = {
+                nui: getStrVal('ppl-numero-unico'),
+                nombre: getStrVal('ppl-nombre').toUpperCase(),
+                cedula: getStrVal('ppl-cedula'),
+                expediente: getStrVal('ppl-expediente'),
+                patio: getStrVal('ppl-patio'),
+                fecha_captura: fechaCapturaStr,
+                condena_anos: cAnos,
+                condena_meses: cMeses,
+                condena_dias: cDias,
+                total_condena_dias: totalCondenaDias,
+                juez: getStrVal('proc-juez-fallador').toUpperCase(),
+                delito: delitoInput,
+                autoridad: getStrVal('proc-autoridad-activa').toUpperCase(),
+                requerimientos: getStrVal('proc-requerimientos').toUpperCase(), // NUEVO
+                situacion: getStrVal('est-situacion'),
+                conducta: getStrVal('est-conducta'),
+                fase: getStrVal('est-fase'),
+                actividad: getStrVal('est-actividad'),
+                sanciones: getStrVal('est-sanciones'),
+                det_ant_ini_1: getStrVal('det-ant-ini-1'),
+                det_ant_fin_1: getStrVal('det-ant-fin-1'),
+                det_ant_ini_2: getStrVal('det-ant-ini-2'),
+                det_ant_fin_2: getStrVal('det-ant-fin-2'),
+                codigo_interno: getStrVal('rep-codigo-interno'),
+                fecha_solicitud: getStrVal('rep-fecha-solicitud'),
+                elaborador: getStrVal('rep-elaborador'),
+                total_redenciones_dias: totalRedencionesDias,
+                tiempo_efectivo_dias: tiempoEfectivoDias,
+                tiempo_restante_dias: tiempoRestanteDias,
+                tiempo_fisico_actual: tiempoFisicoActualDias,
+                total_detenciones_anteriores: totalDetencionesAnterioresDias,
+                excluido_72h: excluido72h, // Guardamos la bandera para el Word (72H)
+                excluido_dom: excluidoDom, // Guardamos la bandera para el Word (Domiciliaria)
+                excluido_cond: excluidoCond // Guardamos la bandera para el Word (Libertad Condicional)
+            };
+        }
+
+        function resetDashboard() {
+            const elCondenaTotal = document.getElementById('calc-condena-total');
+            if (elCondenaTotal) elCondenaTotal.textContent = '--';
+
+            const elFisico = document.getElementById('calc-fisico-actual');
+            const elDetAnt = document.getElementById('calc-det-anterior');
+            const elCumplido = document.getElementById('calc-tiempo-cumplido');
+            const elRestante = document.getElementById('calc-tiempo-restante');
+            if (elFisico) elFisico.textContent = '--';
+            if (elDetAnt) elDetAnt.textContent = '--';
+            if (elCumplido) elCumplido.textContent = '--';
+            if (elRestante) {
+                elRestante.textContent = '--';
+                elRestante.className = 'block text-sm font-extrabold text-slate-200';
+            }
+            calculatedPPLData = null;
+        }
+
+        // Modificada para recibir el flag "isExcluded" (aplicable a todos los beneficios)
+        function updateBenefitBadge(elementId, complies, isExcluded = false) {
+            const badge = document.getElementById(elementId);
+            if (!badge) return;
+            
+            if (isExcluded) {
+                badge.textContent = "DELITO EXCLUIDO";
+                badge.className = "px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-500 text-slate-900";
+            } else if (complies) {
+                badge.textContent = "CUMPLE";
+                badge.className = "px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500 text-slate-900";
+            } else {
+                badge.textContent = "NO CUMPLE";
+                badge.className = "px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-500 text-white";
+            }
+        }
+
+        function setupAutocompleteEvents() {
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#autocomplete-juez') && !e.target.closest('#proc-juez-fallador')) {
+                    const el = document.getElementById('autocomplete-juez');
+                    if (el) el.classList.add('hidden');
+                }
+                if (!e.target.closest('#autocomplete-delito') && !e.target.closest('#proc-delito')) {
+                    const el = document.getElementById('autocomplete-delito');
+                    if (el) el.classList.add('hidden');
+                }
+                if (!e.target.closest('#autocomplete-autoridad') && !e.target.closest('#proc-autoridad-activa')) {
+                    const el = document.getElementById('autocomplete-autoridad');
+                    if (el) el.classList.add('hidden');
+                }
+            });
+        }
+
+        function showAutocomplete(type, input) {
+            let fullText = input.value.toUpperCase();
+            let query = fullText.trim();
+            let prefix = "";
+
+            if (type === 'delito') {
+                // Soportar múltiples delitos separados por coma, punto y coma, o la conjunción " Y "
+                let lastComma = fullText.lastIndexOf(',');
+                let lastSemicolon = fullText.lastIndexOf(';');
+                let lastY = fullText.lastIndexOf(' Y ');
+                
+                let lastSeparatorIdx = Math.max(lastComma, lastSemicolon, lastY > -1 ? lastY + 2 : -1);
+
+                if (lastSeparatorIdx !== -1) {
+                    prefix = fullText.substring(0, lastSeparatorIdx + 1) + " ";
+                    query = fullText.substring(lastSeparatorIdx + 1).trim();
+                } else {
+                    query = fullText.trim();
+                }
+            }
+
+            const containerId = `autocomplete-${type}`;
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            if (query.length < 2) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            let catalog = [];
+            if (type === 'juez' || type === 'autoridad') {
+                catalog = JUZGADOS_RISARALDA;
+            } else if (type === 'delito') {
+                catalog = DELITOS_CODIGO_PENAL;
+            }
+
+            const matches = catalog.filter(item => item.includes(query)).slice(0, 8);
+
+            if (matches.length > 0) {
+                container.innerHTML = '';
+                matches.forEach(match => {
+                    const option = document.createElement('div');
+                    option.className = "p-2.5 hover:bg-slate-100 cursor-pointer border-b border-slate-50 last:border-b-0 uppercase transition";
+                    option.textContent = match;
+                    option.onclick = () => {
+                        if (type === 'delito') {
+                            input.value = prefix + match;
+                        } else {
+                            input.value = match;
+                        }
+                        container.classList.add('hidden');
+                        runCalculations();
+                        input.focus();
+                    };
+                    container.appendChild(option);
+                });
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        let autocompleteTargetData = null;
+        function checkExistingPPL() {
+            const nuiEl = document.getElementById('ppl-numero-unico');
+            if (!nuiEl) return;
+            const nui = nuiEl.value.trim();
+            if (!nui) return;
+
+            if (pplDatabase[nui]) {
+                autocompleteTargetData = pplDatabase[nui];
+                const textContainer = document.getElementById('autocomplete-details-text');
+                if (textContainer) {
+                    textContainer.innerHTML = `
+                        <p><strong>PPL:</strong> ${autocompleteTargetData.nombre}</p>
+                        <p><strong>Cédula:</strong> ${autocompleteTargetData.cedula || 'N/A'}</p>
+                        <p><strong>Delito:</strong> ${autocompleteTargetData.delito || 'N/A'}</p>
+                        <p><strong>Condena:</strong> ${autocompleteTargetData.condena_anos || 0}a, ${autocompleteTargetData.condena_meses || 0}m, ${autocompleteTargetData.condena_dias || 0}d</p>
+                    `;
+                }
+                const modal = document.getElementById('modal-autocomplete-confirm');
+                if (modal) modal.classList.remove('hidden');
+            } else {
+                showToast("PPL Nuevo. Sus datos se guardarán al 'Calcular'.", "info");
+            }
+        }
+
+        function closeAutocompleteConfirm(shouldAutocomp) {
+            const modal = document.getElementById('modal-autocomplete-confirm');
+            if (modal) modal.classList.add('hidden');
+            if (shouldAutocomp && autocompleteTargetData) {
+                populateForm(autocompleteTargetData);
+                showToast("Datos del PPL importados con éxito.", "success");
+            }
+            autocompleteTargetData = null;
+        }
+
+        function populateForm(data) {
+            const _set = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val !== undefined && val !== null ? val : '';
+            };
+
+            // AJUSTE CRÍTICO DE ENLACE DE NÚMERO ÚNICO: 
+            // Buscamos con un fallback de alto espectro para asegurar que si viene de SQLite de la base interna, el NUI cargue perfectamente en su campo principal.
+            let nuiValue = data.nui || data.numero_unico || data.numero_unico_ppl || '';
+            if (!nuiValue && data.ppl_id) {
+                // Buscamos coincidencia cruzada con PPLs de la base local
+                for (const key in pplDatabase) {
+                    if (pplDatabase[key].id == data.ppl_id || pplDatabase[key].ppl_id == data.ppl_id) {
+                        nuiValue = key;
+                        break;
+                    }
+                }
+            }
+
+            _set('ppl-numero-unico', nuiValue);
+            _set('ppl-nombre', data.nombre);
+            _set('ppl-cedula', data.cedula);
+            _set('ppl-expediente', data.expediente);
+            _set('ppl-patio', data.patio);
+            _set('proc-fecha-captura', formatToYMDInput(data.fecha_captura));
+            _set('proc-condena-anos', data.condena_anos);
+            _set('proc-condena-meses', data.condena_meses);
+            _set('proc-condena-dias', data.condena_dias);
+            _set('proc-juez-fallador', data.juez);
+            _set('proc-delito', data.delito);
+            _set('proc-autoridad-activa', data.autoridad);
+            _set('proc-requerimientos', data.requerimientos || ''); // NUEVO
+            _set('est-situacion', data.situacion || 'CONDENADO');
+            _set('est-conducta', data.conducta || 'EJEMPLAR');
+            _set('est-fase', data.fase || 'MEDIANA SEGURIDAD');
+            _set('est-actividad', data.actividad || 'TRABAJO');
+            _set('est-sanciones', data.sanciones || 'NO PRESENTA SANCIONES DISCIPLINARIAS VIGENTES');
+            _set('det-ant-ini-1', formatToYMDInput(data.det_ant_ini_1));
+            _set('det-ant-fin-1', formatToYMDInput(data.det_ant_fin_1));
+            _set('det-ant-ini-2', formatToYMDInput(data.det_ant_ini_2));
+            _set('det-ant-fin-2', formatToYMDInput(data.det_ant_fin_2));
+            _set('rep-codigo-interno', data.codigo_interno);
+            _set('rep-fecha-solicitud', formatToYMDInput(data.fecha_solicitud));
+            _set('rep-elaborador', data.elaborador);
+
+            // Limpieza de redenciones previas
+            for (let i = 1; i <= 30; i++) {
+                _set(`red-auto-${i}`, '');
+                _set(`red-fecha-${i}`, '');
+                _set(`red-a-${i}`, '');
+                _set(`red-m-${i}`, '');
+                _set(`red-d-${i}`, '');
+            }
+
+            if (data.redenciones && Array.isArray(data.redenciones)) {
+                data.redenciones.forEach((red, idx) => {
+                    const rowIdx = idx + 1;
+                    if (rowIdx <= 30) {
+                        _set(`red-auto-${rowIdx}`, red.auto);
+                        _set(`red-fecha-${rowIdx}`, formatToYMDInput(red.fecha));
+                        _set(`red-a-${rowIdx}`, red.a);
+                        _set(`red-m-${rowIdx}`, red.m);
+                        _set(`red-d-${rowIdx}`, red.d);
+                    }
+                });
+            }
+
+            if (data.horas_calculadora) {
+                currentPPLHours = data.horas_calculadora;
+            } else {
+                currentPPLHours = {
+                    TRABAJO: Array(20).fill(0),
+                    ESTUDIO: Array(20).fill(0),
+                    ENSEÑANZA: Array(20).fill(0)
+                };
+            }
+
+            calculateDetentionDays(1);
+            calculateDetentionDays(2);
+            runCalculations();
+        }
+
+        // CONTROL EXCLUSIVO DE CONFIRMACIÓN MODAL PERSONALIZADO
+        function showConfirm(title, message, onAccept) {
+            const modal = document.getElementById('modal-confirm-dialog');
+            const titleEl = document.getElementById('confirm-title');
+            const msgEl = document.getElementById('confirm-message');
+            const btnCancel = document.getElementById('btn-confirm-cancel');
+            const btnAccept = document.getElementById('btn-confirm-accept');
+
+            if (!modal) {
+                if (window.confirm(message)) onAccept();
+                return;
+            }
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+            modal.classList.remove('hidden');
+
+            btnCancel.onclick = () => {
+                modal.classList.add('hidden');
+            };
+
+            btnAccept.onclick = () => {
+                modal.classList.add('hidden');
+                onAccept();
+            };
+        }
+
+        async function saveAndCalculate() {
+            const nui = document.getElementById('ppl-numero-unico').value.trim();
+            const nombre = document.getElementById('ppl-nombre').value.trim();
+            
+            if (!nui || !nombre) {
+                showToast("El Número Único y el Nombre son obligatorios.", "warning");
+                return;
+            }
+
+            const fechaCapturaStr = document.getElementById('proc-fecha-captura').value;
+            if (!fechaCapturaStr) {
+                showToast("La Fecha de Captura Actual es obligatoria para realizar el cálculo.", "warning");
+                return;
+            }
+
+            runCalculations();
+
+            if (!calculatedPPLData) {
+                showToast("No se pudo completar el cálculo. Verifique las fechas ingresadas.", "error");
+                return;
+            }
+
+            const listRedenciones = [];
+            for (let i = 1; i <= 30; i++) {
+                const auto = document.getElementById(`red-auto-${i}`).value.trim();
+                const fecha = document.getElementById(`red-fecha-${i}`).value;
+                const a = parseInt(document.getElementById(`red-a-${i}`).value, 10) || 0;
+                const m = parseInt(document.getElementById(`red-m-${i}`).value, 10) || 0;
+                const d = parseInt(document.getElementById(`red-d-${i}`).value, 10) || 0;
+                
+                if (auto || fecha || a || m || d) {
+                    listRedenciones.push({ auto, fecha, a, m, d });
+                }
+            }
+
+            calculatedPPLData.redenciones = listRedenciones;
+            calculatedPPLData.horas_calculadora = currentPPLHours;
+
+            // 1. Guardar localmente de inmediato
+            pplDatabase[nui] = calculatedPPLData;
+            localStorage.setItem('ppl_database', JSON.stringify(pplDatabase));
+
+            const historicalRecord = {
+                id: Date.now(),
+                fecha_generacion: new Date().toISOString().substring(0,10),
+                ...calculatedPPLData
+            };
+            reportHistory.unshift(historicalRecord);
+            localStorage.setItem('report_history', JSON.stringify(reportHistory));
+
+            renderHistoryTable();
+            renderComplianceTable();
+
+            // 2. Guardar en Base de Datos de la nube si está activa
+            if (isCloudActive && currentUser) {
+                try {
+                    showToast("Sincronizando con la nube...", "info");
+                    // Guardado según la Regla 1 (public path)
+                    const pplDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'ppl_records', nui);
+                    await setDoc(pplDocRef, calculatedPPLData);
+
+                    const histDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'history_records', String(historicalRecord.id));
+                    await setDoc(histDocRef, historicalRecord);
+
+                    showToast("Sincronización en la nube exitosa.", "success");
+                } catch (e) {
+                    console.error("Error guardando en Firestore:", e);
+                    showToast("Guardado local activo (offline).", "warning");
+                }
+            } else {
+                showToast("Datos guardados en este computador localmente.", "success");
+            }
+        }
+
+        function openHoursCalculator() {
+            document.getElementById('modal-horas').classList.remove('hidden');
+            switchActivityTab(activeCalculatorTab);
+        }
+
+        function closeHoursCalculator() {
+            document.getElementById('modal-horas').classList.add('hidden');
+        }
+
+        function switchActivityTab(activity) {
+            ['TRABAJO', 'ESTUDIO', 'ENSEÑANZA'].forEach(act => {
+                const tab = document.getElementById(`tab-${act}`);
+                if (tab) tab.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition";
+            });
+
+            const activeTab = document.getElementById(`tab-${activity}`);
+            if (activeTab) activeTab.className = "px-4 py-3 text-xs font-bold border-b-2 border-rose-600 text-rose-600 transition";
+
+            activeCalculatorTab = activity;
+            renderHoursGrid();
+        }
+
+        function renderHoursGrid() {
+            const grid = document.getElementById('hours-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            const hoursList = currentPPLHours[activeCalculatorTab];
+
+            for (let i = 0; i < 20; i++) {
+                const cell = document.createElement('div');
+                cell.className = "flex items-center space-x-1.5";
+                cell.innerHTML = `
+                    <span class="text-xs font-bold text-slate-400 w-4 text-right">${i+1}.</span>
+                    <input type="number" id="hr-cell-${i}" value="${hoursList[i] || ''}" placeholder="0" class="w-full text-center border border-slate-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-rose-500" onchange="updateHourCell(${i}, this.value)">
+                `;
+                grid.appendChild(cell);
+            }
+            updateHoursTotalizers();
+        }
+
+        function updateHourCell(idx, val) {
+            currentPPLHours[activeCalculatorTab][idx] = parseInt(val, 10) || 0;
+            updateHoursTotalizers();
+        }
+
+        function updateHoursTotalizers() {
+            const hoursList = currentPPLHours[activeCalculatorTab];
+            const totalHours = hoursList.reduce((acc, curr) => acc + curr, 0);
+            
+            let divisor = 16;
+            if (activeCalculatorTab === 'ESTUDIO') divisor = 12;
+            else if (activeCalculatorTab === 'ENSEÑANZA') divisor = 8;
+
+            const equivalentDays = Math.floor(totalHours / divisor);
+
+            const elTotalAct = document.getElementById('modal-horas-actividad-total');
+            const elDaysAct = document.getElementById('modal-dias-actividad-total');
+            if (elTotalAct) elTotalAct.textContent = `${totalHours} horas`;
+            if (elDaysAct) elDaysAct.textContent = format360DaysEquivalent(equivalentDays);
+        }
+
+        function clearHoursCalculatorFields() {
+            currentPPLHours[activeCalculatorTab] = Array(20).fill(0);
+            renderHoursGrid();
+        }
+
+        function transferHoursToRedemption() {
+            const hoursList = currentPPLHours[activeCalculatorTab];
+            const totalHours = hoursList.reduce((acc, curr) => acc + curr, 0);
+            
+            let divisor = 16;
+            if (activeCalculatorTab === 'ESTUDIO') divisor = 12;
+            else if (activeCalculatorTab === 'ENSEÑANZA') divisor = 8;
+
+            const equivalentDays = Math.floor(totalHours / divisor);
+
+            if (equivalentDays <= 0) {
+                showToast("No hay horas acumuladas suficientes para liquidar días.", "warning");
+                return;
+            }
+
+            const years = Math.floor(equivalentDays / 360);
+            const remaining = equivalentDays % 360;
+            const months = Math.floor(remaining / 30);
+            const days = remaining % 30;
+
+            let rowInyectar = 30;
+            for (let i = 1; i <= 30; i++) {
+                const a = document.getElementById(`red-a-${i}`);
+                const m = document.getElementById(`red-m-${i}`);
+                const d = document.getElementById(`red-d-${i}`);
+                if (a && m && d && !a.value && !m.value && !d.value) {
+                    rowInyectar = i;
+                    break;
+                }
+            }
+
+            const autoEl = document.getElementById(`red-auto-${rowInyectar}`);
+            const dateEl = document.getElementById(`red-fecha-${rowInyectar}`);
+            const aEl = document.getElementById(`red-a-${rowInyectar}`);
+            const mEl = document.getElementById(`red-m-${rowInyectar}`);
+            const dEl = document.getElementById(`red-d-${rowInyectar}`);
+
+            if (autoEl) autoEl.value = "CALC-HR";
+            if (dateEl) dateEl.value = new Date().toISOString().substring(0, 10);
+            if (aEl) aEl.value = years || '';
+            if (mEl) mEl.value = months || '';
+            if (dEl) dEl.value = days || '';
+
+            sumRedemptionTotals();
+            runCalculations();
+            closeHoursCalculator();
+            showToast(`Se han transferido ${format360DaysEquivalent(equivalentDays)} a la Redención Fila ${rowInyectar}.`, "success");
+        }
+
+        // ==========================================
+        //  MODAL: HISTORIAL DE REPORTES
+        // ==========================================
+        function openHistoryModal() {
+            const modal = document.getElementById('modal-historial');
+            if (modal) modal.classList.remove('hidden');
+            renderHistoryTable();
+        }
+
+        function closeHistoryModal() {
+            const modal = document.getElementById('modal-historial');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function toggleSelectAllHistory(masterCheckbox) {
+            const checkboxes = document.querySelectorAll('.history-row-checkbox');
+            checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+        }
+
+        function copySelectedHistoryToExcel() {
+            const checkboxes = document.querySelectorAll('.history-row-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showToast("Por favor, seleccione al menos un registro para copiar.", "warning");
+                return;
+            }
+
+            const selectedIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
+            const selectedRecords = reportHistory.filter(rec => selectedIds.includes(String(rec.id)));
+
+            // Formato tabulado (TSV) compatible de forma nativa con Excel
+            let tsv = "No.\tPetición\tNombre PPL\tNº Único\tCédula\tExpediente\tPatio\tJuez Fallador\tDelito\tAutoridad Judicial Activa\tCondena Impuesta\tTiempo Físico Actual\tRedenciones Totales\tDetenciones Anteriores\tTiempo Cumplido\tTiempo Restante\tSituación Jurídica\tCalificación de Conducta\tFase de Tratamiento\tActividad de Descuento\tSanciones\tElaborador\tRequerimientos\n";
+            
+            selectedRecords.forEach((rec, idx) => {
+                const condena = `${rec.condena_anos || 0}a ${rec.condena_meses || 0}m ${rec.condena_dias || 0}d`;
+                const fisico = format360DaysEquivalent(rec.tiempo_fisico_actual || 0);
+                const redenciones = format360DaysEquivalent(rec.total_redenciones_dias || 0);
+                const detAnterior = format360DaysEquivalent(rec.total_detenciones_anteriores || 0);
+                const cumplido = format360DaysEquivalent(rec.tiempo_efectivo_dias || 0);
+                const restante = rec.tiempo_restante_dias <= 0 ? 'PENA CUMPLIDA' : format360DaysEquivalent(rec.tiempo_restante_dias || 0);
+                const requerimientos = rec.requerimientos || 'N/A';
+
+                tsv += `${idx+1}\t${formatDateToDMY(rec.fecha_solicitud)}\t${rec.nombre || ''}\t${rec.nui || ''}\t${rec.cedula || ''}\t${rec.expediente || ''}\t${rec.patio || ''}\t${rec.juez || ''}\t${rec.delito || ''}\t${rec.autoridad || ''}\t${condena}\t${fisico}\t${redenciones}\t${detAnterior}\t${cumplido}\t${restante}\t${rec.situacion || ''}\t${rec.conducta || ''}\t${rec.fase || ''}\t${rec.actividad || ''}\t${rec.sanciones || ''}\t${rec.elaborador || ''}\t${requerimientos}\n`;
+            });
+
+            navigator.clipboard.writeText(tsv).then(() => {
+                showToast("Datos copiados para pegar en Excel (tabulados).", "success");
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = tsv;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast("Datos copiados al portapapeles.", "success");
+            });
+        }
+
+        function toggleHistoryDateSort() {
+            historySortOrder = historySortOrder === 'desc' ? 'asc' : 'desc';
+            filterHistoryTable(); // Re-aplica el filtro y renderiza con el nuevo orden
+        }
+
+        function renderHistoryTable(filteredList = null) {
+            let listToRender = filteredList ? [...filteredList] : [...reportHistory];
+            
+            // NUEVO: Aplicar ordenamiento por fecha de petición
+            listToRender.sort((a, b) => {
+                const dateA = parseDateSecure(a.fecha_solicitud) || new Date(0);
+                const dateB = parseDateSecure(b.fecha_solicitud) || new Date(0);
+                return historySortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+            });
+
+            const tbody = document.getElementById('history-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const masterCheckbox = document.getElementById('history-select-all');
+            if (masterCheckbox) masterCheckbox.checked = false;
+
+            if (listToRender.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-slate-400">No hay registros de cómputo en el historial.</td></tr>`;
+                return;
+            }
+
+            listToRender.forEach((record, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b border-slate-100 transition cursor-pointer";
+                tr.onclick = (e) => {
+                    if (e.target.closest('.action-btn') || e.target.closest('.row-check')) return;
+                    populateForm(record);
+                    closeHistoryModal();
+                };
+
+                const fechaPeticionFormateada = record.fecha_solicitud ? formatDateToDMY(record.fecha_solicitud) : 'N/A';
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center row-check">
+                        <input type="checkbox" data-id="${record.id}" class="history-row-checkbox rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer" onclick="event.stopPropagation()">
+                    </td>
+                    <td class="p-3 font-semibold text-slate-400">${index + 1}</td>
+                    <td class="p-3 font-mono">${fechaPeticionFormateada}</td>
+                    <td class="p-3 font-bold text-slate-900">${record.nombre}</td>
+                    <td class="p-3 font-mono">${record.nui || 'N/A'}</td>
+                    <td class="p-3 font-mono">${record.cedula || 'N/A'}</td>
+                    <td class="p-3 text-[10px] truncate max-w-[120px]" title="${record.autoridad}">${record.autoridad || 'N/A'}</td>
+                    <td class="p-3 font-mono text-[10px]" title="${record.expediente || 'N/A'}">${record.expediente || 'N/A'}</td>
+                    <td class="p-3 text-[10px] truncate max-w-[120px]" title="${record.elaborador || 'N/A'}">${record.elaborador || 'N/A'}</td>
+                    <td class="p-3 font-mono text-[10px]">${record.codigo_interno || 'N/A'}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="deleteHistoryRecord(${record.id}, event)" class="action-btn text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition" title="Eliminar del historial">
+                            <i data-lucide="trash" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        function filterHistoryTable() {
+            const query = document.getElementById('history-search').value.toLowerCase().trim();
+            if (!query) {
+                renderHistoryTable();
+                return;
+            }
+
+            const cleanQuery = query.replace(/\./g, '');
+            const filtered = reportHistory.filter(rec => {
+                const matchNombre = rec.nombre ? rec.nombre.toLowerCase().includes(query) : false;
+                const matchCedula = rec.cedula ? rec.cedula.replace(/\./g, '').includes(cleanQuery) : false;
+                const matchNui = (rec.nui ? rec.nui.toLowerCase().includes(query) : false) || 
+                                 (rec.numero_unico ? rec.numero_unico.toLowerCase().includes(query) : false);
+                const matchExpediente = rec.expediente ? rec.expediente.toLowerCase().includes(query) : false;
+                const matchOficio = rec.codigo_interno ? rec.codigo_interno.toLowerCase().includes(query) : false;
+
+                return matchNombre || matchCedula || matchNui || matchExpediente || matchOficio;
+            });
+            renderHistoryTable(filtered);
+        }
+
+        function executeHistorySearch() {
+            filterHistoryTable(); 
+            const query = document.getElementById('history-search').value.toLowerCase().trim();
+            if (!query) return;
+
+            const cleanQuery = query.replace(/\./g, '');
+            const filtered = reportHistory.filter(rec => {
+                const matchNombre = rec.nombre ? rec.nombre.toLowerCase().includes(query) : false;
+                const matchCedula = rec.cedula ? rec.cedula.replace(/\./g, '').includes(cleanQuery) : false;
+                const matchNui = (rec.nui ? rec.nui.toLowerCase().includes(query) : false) || 
+                                 (rec.numero_unico ? rec.numero_unico.toLowerCase().includes(query) : false);
+                const matchExpediente = rec.expediente ? rec.expediente.toLowerCase().includes(query) : false;
+                const matchOficio = rec.codigo_interno ? rec.codigo_interno.toLowerCase().includes(query) : false;
+
+                return matchNombre || matchCedula || matchNui || matchExpediente || matchOficio;
+            });
+
+            if (filtered.length === 1) {
+                populateForm(filtered[0]);
+                closeHistoryModal();
+                showToast("Registro exacto encontrado y cargado en el formulario.", "success");
+            } else if (filtered.length > 1) {
+                showToast(`Se encontraron ${filtered.length} coincidencias. Seleccione una de la lista.`, "info");
+            } else {
+                showToast("No se encontraron registros con ese dato.", "warning");
+            }
+        }
+
+        // ==========================================
+        //  MODAL: INFORME DE CUMPLIMIENTO
+        // ==========================================
+        function openComplianceModal() {
+            const modal = document.getElementById('modal-cumplimiento');
+            if (modal) modal.classList.remove('hidden');
+            renderComplianceTable();
+        }
+
+        function closeComplianceModal() {
+            const modal = document.getElementById('modal-cumplimiento');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function toggleSelectAllCompliance(masterCheckbox) {
+            const checkboxes = document.querySelectorAll('.compliance-row-checkbox');
+            checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+        }
+
+        function copySelectedComplianceToExcel() {
+            const checkboxes = document.querySelectorAll('.compliance-row-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showToast("Por favor, seleccione al menos un registro para copiar.", "warning");
+                return;
+            }
+
+            const selectedIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
+            const selectedRecords = reportHistory.filter(rec => selectedIds.includes(String(rec.id)));
+
+            let tsv = "No.\tNº Único\tNombre PPL\tCédula\tAutoridad\tExpediente\tCondena Impuesta\tTiempo Pendiente\n";
+            
+            selectedRecords.forEach((rec, idx) => {
+                const condena = `${format360DaysEquivalent(rec.total_condena_dias || 0)} (${rec.condena_anos || 0}a ${rec.condena_meses || 0}m ${rec.condena_dias || 0}d)`;
+                const pendiente = rec.tiempo_restante_dias <= 0 ? `EXCEDIDO DE PENA (${format360DaysEquivalent(Math.abs(rec.tiempo_restante_dias))})` : format360DaysEquivalent(rec.tiempo_restante_dias);
+                
+                tsv += `${idx+1}\t${rec.nui || ''}\t${rec.nombre || ''}\t${rec.cedula || ''}\t${rec.autoridad || ''}\t${rec.expediente || ''}\t${condena}\t${pendiente}\n`;
+            });
+
+            navigator.clipboard.writeText(tsv).then(() => {
+                showToast("Datos copiados para pegar en Excel.", "success");
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = tsv;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast("Datos copiados al portapapeles.", "success");
+            });
+        }
+
+        function renderComplianceTable(filteredList = null) {
+            const sourceList = filteredList || reportHistory;
+            const tbody = document.getElementById('compliance-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const masterCheckbox = document.getElementById('compliance-select-all');
+            if (masterCheckbox) masterCheckbox.checked = false;
+
+            if (sourceList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400">No hay registros de cómputo en el historial.</td></tr>`;
+                return;
+            }
+
+            // NUEVO: 1. Agrupar por PPL conservando solo el último registro (el de mayor ID)
+            const sortedSource = [...sourceList].sort((a, b) => b.id - a.id);
+            const uniqueMap = new Map();
+            sortedSource.forEach(rec => {
+                const key = rec.nui || rec.cedula || rec.nombre;
+                if (key && !uniqueMap.has(key)) {
+                    uniqueMap.set(key, rec);
+                }
+            });
+            let listToRender = Array.from(uniqueMap.values());
+
+            // NUEVO: 2. Ordenar de modo que los "EXCEDIDOS DE PENA" (tiempo restante <= 0) queden de primeros
+            listToRender.sort((a, b) => {
+                const aExcedido = a.tiempo_restante_dias <= 0;
+                const bExcedido = b.tiempo_restante_dias <= 0;
+                
+                if (aExcedido && !bExcedido) return -1;
+                if (!aExcedido && bExcedido) return 1;
+                
+                return (a.tiempo_restante_dias || 0) - (b.tiempo_restante_dias || 0);
+            });
+
+            listToRender.forEach((record, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b border-slate-100 transition cursor-pointer";
+                tr.onclick = (e) => {
+                    if (e.target.closest('.action-btn') || e.target.closest('.row-check')) return;
+                    populateForm(record);
+                    closeComplianceModal();
+                };
+
+                const condenaStr = `${format360DaysEquivalent(record.total_condena_dias || 0)} (${record.condena_anos || 0}a ${record.condena_meses || 0}m ${record.condena_dias || 0}d)`;
+                
+                let restanteHtml = '';
+                if (record.tiempo_restante_dias <= 0) {
+                    restanteHtml = `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded border border-rose-200 font-extrabold text-[10px] animate-pulse">EXCEDIDO DE PENA (${format360DaysEquivalent(Math.abs(record.tiempo_restante_dias))})</span>`;
+                } else {
+                    restanteHtml = `<span class="font-bold text-emerald-600">${format360DaysEquivalent(record.tiempo_restante_dias)}</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center row-check">
+                        <input type="checkbox" data-id="${record.id}" class="compliance-row-checkbox rounded text-amber-500 focus:ring-amber-500 h-4 w-4 cursor-pointer" onclick="event.stopPropagation()">
+                    </td>
+                    <td class="p-3 font-semibold text-slate-400">${index + 1}</td>
+                    <td class="p-3 font-mono">${record.nui || 'N/A'}</td>
+                    <td class="p-3 font-bold text-slate-900">${record.nombre}</td>
+                    <td class="p-3 font-mono">${record.cedula || 'N/A'}</td>
+                    <td class="p-3 text-[10px] truncate max-w-[120px]" title="${record.autoridad}">${record.autoridad || 'N/A'}</td>
+                    <td class="p-3 font-mono text-[10px]" title="${record.expediente || 'N/A'}">${record.expediente || 'N/A'}</td>
+                    <td class="p-3 text-[10px] text-slate-600">${condenaStr}</td>
+                    <td class="p-3">${restanteHtml}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="deleteHistoryRecord(${record.id}, event)" class="action-btn text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition" title="Eliminar del registro">
+                            <i data-lucide="trash" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        function filterComplianceTable() {
+            const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+            if (!query) {
+                renderComplianceTable();
+                return;
+            }
+
+            const cleanQuery = query.replace(/\./g, '');
+            const filtered = reportHistory.filter(rec => {
+                const matchNombre = rec.nombre ? rec.nombre.toLowerCase().includes(query) : false;
+                const matchCedula = rec.cedula ? rec.cedula.replace(/\./g, '').includes(cleanQuery) : false;
+                const matchNui = (rec.nui ? rec.nui.toLowerCase().includes(query) : false) || 
+                                 (rec.numero_unico ? rec.numero_unico.toLowerCase().includes(query) : false);
+                const matchExpediente = rec.expediente ? rec.expediente.toLowerCase().includes(query) : false;
+
+                return matchNombre || matchCedula || matchNui || matchExpediente;
+            });
+            renderComplianceTable(filtered);
+        }
+
+        function executeComplianceSearch() {
+            filterComplianceTable(); 
+            const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+            if (!query) return;
+
+            const cleanQuery = query.replace(/\./g, '');
+            const filtered = reportHistory.filter(rec => {
+                const matchNombre = rec.nombre ? rec.nombre.toLowerCase().includes(query) : false;
+                const matchCedula = rec.cedula ? rec.cedula.replace(/\./g, '').includes(cleanQuery) : false;
+                const matchNui = (rec.nui ? rec.nui.toLowerCase().includes(query) : false) || 
+                                 (rec.numero_unico ? rec.numero_unico.toLowerCase().includes(query) : false);
+                const matchExpediente = rec.expediente ? rec.expediente.toLowerCase().includes(query) : false;
+
+                return matchNombre || matchCedula || matchNui || matchExpediente;
+            });
+
+            if (filtered.length === 1) {
+                populateForm(filtered[0]);
+                closeComplianceModal();
+                showToast("Registro exacto encontrado y cargado en el formulario.", "success");
+            } else if (filtered.length > 1) {
+                showToast(`Se encontraron ${filtered.length} coincidencias. Seleccione una de la lista.`, "info");
+            } else {
+                showToast("No se encontraron registros con ese dato.", "warning");
+            }
+        }
+
+
+        // ==========================================
+        //  ACCIONES GENERALES DE BORRADO
+        // ==========================================
+        async function deleteHistoryRecord(id, event) {
+            if (event) event.stopPropagation();
+            showConfirm(
+                "Eliminar Liquidación",
+                "¿Desea eliminar esta liquidación del historial de forma permanente?",
+                async () => {
+                    // Local
+                    reportHistory = reportHistory.filter(rec => rec.id !== id);
+                    localStorage.setItem('report_history', JSON.stringify(reportHistory));
+                    renderHistoryTable();
+                    renderComplianceTable(); // Recargamos también la otra tabla en caso de que esté abierta
+
+                    // Nube
+                    if (isCloudActive && currentUser) {
+                        try {
+                            const histDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'history_records', String(id));
+                            await deleteDoc(histDocRef);
+                            showToast("Registro eliminado de la nube.", "success");
+                        } catch (e) {
+                            console.error("Error al eliminar de la nube:", e);
+                        }
+                    } else {
+                        showToast("Registro eliminado de este equipo.", "success");
+                    }
+                }
+            );
+        }
+
+        function cleanForm() {
+            showConfirm(
+                "Limpiar Formulario",
+                "¿Desea limpiar todos los campos del formulario?",
+                () => {
+                    const fields = [
+                        'ppl-numero-unico', 'ppl-nombre', 'ppl-cedula', 'ppl-expediente', 'ppl-patio',
+                        'proc-fecha-captura', 'proc-condena-anos', 'proc-condena-meses', 'proc-condena-dias',
+                        'proc-juez-fallador', 'proc-delito', 'proc-autoridad-activa', 'proc-requerimientos', 'est-sanciones',
+                        'det-ant-ini-1', 'det-ant-fin-1', 'det-ant-ini-2', 'det-ant-fin-2',
+                        'rep-codigo-interno', 'rep-fecha-solicitud', 'rep-elaborador'
+                    ];
+                    fields.forEach(f => {
+                        const el = document.getElementById(f);
+                        if (el) el.value = '';
+                    });
+
+                    const sanctionsEl = document.getElementById('est-sanciones');
+                    if (sanctionsEl) sanctionsEl.value = 'NO PRESENTA SANCIONES DISCIPLINARIAS VIGENTES';
+
+                    for (let i = 1; i <= 30; i++) {
+                        const elAuto = document.getElementById(`red-auto-${i}`);
+                        const elFecha = document.getElementById(`red-fecha-${i}`);
+                        const elA = document.getElementById(`red-a-${i}`);
+                        const elM = document.getElementById(`red-m-${i}`);
+                        const elD = document.getElementById(`red-d-${i}`);
+                        if (elAuto) elAuto.value = '';
+                        if (elFecha) elFecha.value = '';
+                        if (elA) elA.value = '';
+                        if (elM) elM.value = '';
+                        if (elD) elD.value = '';
+                    }
+
+                    currentPPLHours = {
+                        TRABAJO: Array(20).fill(0),
+                        ESTUDIO: Array(20).fill(0),
+                        ENSEÑANZA: Array(20).fill(0)
+                    };
+
+                    sumRedemptionTotals();
+                    calculateDetentionDays(1);
+                    calculateDetentionDays(2);
+                    
+                    const repCodeEl = document.getElementById('rep-codigo-interno');
+                    if (repCodeEl) repCodeEl.value = `616-1.7-CPMSPEI-JURIDICA-${reportHistory.length + 10}`;
+                    
+                    const repDateEl = document.getElementById('rep-fecha-solicitud');
+                    if (repDateEl) repDateEl.value = new Date().toISOString().substring(0, 10);
+
+                    resetDashboard();
+                    showToast("Formulario restablecido.", "info");
+                }
+            );
+        }
+
+        // Generación robusta de Word (.docx) corregida para evitar corrupción de XML
+        function generateWordDocument() {
+            if (typeof window.docx === 'undefined') {
+                showToast("Librería de Word no cargada. Verifique su conexión a internet.", "error");
+                return;
+            }
+
+            if (!calculatedPPLData) {
+                showToast("Por favor, calcule primero la situación jurídica antes de exportar.", "warning");
+                return;
+            }
+
+            try {
+                const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, Footer, SimpleField } = window.docx;
+
+                const data = calculatedPPLData;
+                const fechaHoyLarga = getFechaLargaHoy();
+                const fechaPeticionFormateada = data.fecha_solicitud ? ` el ${getFechaLarga(data.fecha_solicitud)}` : '';
+                const cedulaFormateada = data.cedula ? formatMil(data.cedula) : 'N/A';
+
+                const doc = new Document({
+                    sections: [{
+                        properties: {
+                            page: {
+                                margin: {
+                                    top: 1440,
+                                    bottom: 1440,
+                                    left: 1440,
+                                    right: 1440
+                                }
+                            }
+                        },
+                        footers: {
+                            default: new Footer({
+                                children: [
+                                    new Paragraph({
+                                        alignment: "center", // Centrado nativo
+                                        children: [
+                                            new TextRun({ text: "INSTITUTO NACIONAL PENITENCIARIO Y CARCELARIO - INPEC", bold: true, font: "Verdana", size: 15 })
+                                        ]
+                                    }),
+                                    new Paragraph({
+                                        alignment: "center", // Centrado nativo
+                                        children: [
+                                            new TextRun({ text: "Carrera 8ª No. 41-97 Pereira. Conmutador 3147626 Ext. 104", font: "Verdana", size: 13 })
+                                        ]
+                                    }),
+                                    new Paragraph({
+                                        alignment: "center", // Centrado nativo
+                                        children: [
+                                            new TextRun({ text: "Correo: juridica.epecpereira@inpec.gov.co", font: "Verdana", size: 13 })
+                                        ]
+                                    }),
+                                    new Paragraph({
+                                        alignment: "center", // Centrado nativo
+                                        children: [
+                                            new TextRun({ text: "Página ", font: "Verdana", size: 13 }),
+                                            new SimpleField("PAGE"),
+                                            new TextRun({ text: " de ", font: "Verdana", size: 13 }),
+                                            new SimpleField("NUMPAGES")
+                                        ]
+                                    })
+                                ]
+                            })
+                        },
+                        children: [
+                            new Paragraph({ children: [new TextRun({ text: data.codigo_interno || ' ', bold: true, font: "Verdana", size: 22 })], spacing: { after: 240 } }),
+                            new Paragraph({ children: [new TextRun({ text: `Pereira, ${fechaHoyLarga}`, font: "Verdana", size: 22 })], spacing: { after: 480 } }),
+                            new Paragraph({ children: [new TextRun({ text: "Señor", font: "Verdana", size: 22 })] }),
+                            new Paragraph({ children: [new TextRun({ text: `PPL. ${data.nombre || ' '}`, bold: true, font: "Verdana", size: 22 })] }),
+                            new Paragraph({ children: [new TextRun({ text: `Cédula ${cedulaFormateada} - Número Único ${data.nui || ' '}`, font: "Verdana", size: 22 })] }),
+                            new Paragraph({ children: [new TextRun({ text: `Privado de la Libertad – Patio No: ${data.patio || ' '}`, font: "Verdana", size: 22 })], spacing: { after: 480 } }),
+                            new Paragraph({ 
+                                children: [
+                                    new TextRun({ text: "Asunto: ", bold: true, font: "Verdana", size: 22 }),
+                                    new TextRun({ text: "Respuesta a solicitud de información – Situación jurídica", font: "Verdana", size: 22 })
+                                ],
+                                spacing: { after: 480 }
+                            }),
+                            new Paragraph({ children: [new TextRun({ text: "Cordial saludo,", font: "Verdana", size: 22 })], spacing: { after: 240 } }),
+                            new Paragraph({
+                                alignment: "both", // Justificado según requerimiento
+                                children: [
+                                    new TextRun({
+                                        text: `En atención a la solicitud elevada al área jurídica de este establecimiento de reclusión${fechaPeticionFormateada}, mediante la cual solicita información relacionada con su situación jurídica y cartilla biográfica, me permito informarle lo siguiente:`,
+                                        font: "Verdana",
+                                        size: 22
+                                    })
+                                ],
+                                spacing: { after: 240 }
+                            }),
+                            new Paragraph({
+                                alignment: "both", // Justificado según requerimiento
+                                children: [
+                                    new TextRun({ 
+                                        text: "Una vez revisados los documentos contenidos en su hoja de vida y cartilla biográfica, se constató la siguiente información:", 
+                                        font: "Verdana", 
+                                        size: 22 
+                                    })
+                                ],
+                                spacing: { after: 240 }
+                            }),
+
+                            new Paragraph({ 
+                                children: [new TextRun({ text: "1. DATOS DEL PROCESO ACTIVO:", bold: true, font: "Verdana", size: 22 })],
+                                spacing: { after: 240 } // Espacio de salto debajo del ítem
+                            }),
+                            createStandardDocxTable((() => {
+                                const tableRows = [
+                                    ["NÚMERO DEL PROCESO:", data.expediente || 'N/A'],
+                                    ["CONDENA IMPUESTA:", `${format360DaysEquivalent(data.total_condena_dias).toUpperCase()} / EQUIVALENTE A: ${format360DaysYMD(data.total_condena_dias).toUpperCase()}`],
+                                    ["FECHA DE CAPTURA:", formatDateToDMY(data.fecha_captura)],
+                                    ["AUTORIDAD JUDICIAL:", data.autoridad || 'N/A'],
+                                    ["DELITO:", data.delito || 'N/A']
+                                ];
+                                if (data.requerimientos) {
+                                    tableRows.push(["REQUERIMIENTOS U OTROS PROCESOS:", data.requerimientos]);
+                                }
+                                return tableRows;
+                            })()),
+                            new Paragraph({ children: [new TextRun({ text: " " })], spacing: { after: 240 } }), // Padding posterior de separación
+
+                            new Paragraph({ 
+                                children: [new TextRun({ text: "2. INFORMACION - ESTADO DE RECLUSION Y TRATAMIENTO:", bold: true, font: "Verdana", size: 22 })],
+                                spacing: { after: 240 } // Espacio de salto debajo del ítem
+                            }),
+                            createStandardDocxTable([
+                                ["SITUACION JURIDICA:", data.situacion || 'N/A'],
+                                ["CALIFICACION DE CONDUCTA:", data.conducta || 'N/A'],
+                                ["CLASIFICACION EN FASE DE TRATAMIENTO:", data.fase || 'N/A'],
+                                ["ACTIVIDAD DE DESCUENTO:", data.actividad || 'N/A'],
+                                ["SANCIONES DISCIPLINARIAS:", data.sanciones || 'N/A']
+                            ]),
+                            new Paragraph({ children: [new TextRun({ text: " " })], spacing: { after: 240 } }), // Padding posterior de separación
+
+                            ...(data.total_detenciones_anteriores > 0 ? [
+                                new Paragraph({ 
+                                    children: [new TextRun({ text: "3. TIMEPO DE DETENCION ANTERIOR:", bold: true, font: "Verdana", size: 22 })],
+                                    spacing: { after: 240 } // Espacio de salto debajo del ítem
+                                }),
+                                createStandardDocxTable([
+                                    ...(data.det_ant_ini_1 ? [
+                                        ["FECHA CAPTURA 1° DETENCION:", formatDateToDMY(data.det_ant_ini_1)],
+                                        ["FECHA TERMINACION 1° DETENCION:", formatDateToDMY(data.det_ant_fin_1)],
+                                        ["TIEMPO DESCONTADO 1° DETENCION:", format360DaysEquivalent(calculate360Difference(data.det_ant_ini_1, data.det_ant_fin_1)).toUpperCase()]
+                                    ] : []),
+                                    ...(data.det_ant_ini_2 ? [
+                                        ["FECHA CAPTURA 2° DETENCION:", formatDateToDMY(data.det_ant_ini_2)],
+                                        ["FECHA TERMINACION 2° DETENCION:", formatDateToDMY(data.det_ant_fin_2)],
+                                        ["TIEMPO DESCONTADO 2° DETENCION:", format360DaysEquivalent(calculate360Difference(data.det_ant_ini_2, data.det_ant_fin_2)).toUpperCase()]
+                                    ] : [])
+                                ]),
+                                new Paragraph({ children: [new TextRun({ text: " " })], spacing: { after: 240 } }) // Padding posterior de separación
+                            ] : []),
+
+                            new Paragraph({ 
+                                children: [new TextRun({ text: `${data.total_detenciones_anteriores > 0 ? '4' : '3'}. RESULTADOS DEL CÁLCULO:`, bold: true, font: "Verdana", size: 22 })],
+                                spacing: { after: 240 } // Espacio de salto debajo del ítem
+                            }),
+                            createStandardDocxTable([
+                                ["TIEMPO FÍSICO DESCONTADO:", format360DaysEquivalent(data.tiempo_fisico_actual)],
+                                ["REDENCIONES ACUMULADAS:", format360DaysEquivalent(data.total_redenciones_dias)],
+                                ...(data.total_detenciones_anteriores > 0 ? [["TIEMPO DE DETENCIONES ANTERIORES:", format360DaysEquivalent(data.total_detenciones_anteriores)]] : []),
+                                ["TIEMPO TOTAL DESCONTADO:", format360DaysEquivalent(data.tiempo_efectivo_dias)],
+                                ["TIEMPO RESTANTE POR DESCONTAR CUMPLIMIENTO DE LA PENA:", data.tiempo_restante_dias <= 0 ? "PENA CUMPLIDA" : format360DaysEquivalent(data.tiempo_restante_dias)]
+                            ]),
+                            new Paragraph({ children: [new TextRun({ text: " " })], spacing: { after: 240 } }), // Padding posterior de separación
+
+                            new Paragraph({ 
+                                children: [new TextRun({ text: `${data.total_detenciones_anteriores > 0 ? '5' : '4'}. BENEFICIOS Y SUBROGADOS PENALES:`, bold: true, font: "Verdana", size: 22 })],
+                                spacing: { after: 240 } // Espacio de salto debajo del ítem
+                            }),
+                            createBeneficiosDocxTable(data),
+                            new Paragraph({ children: [new TextRun({ text: " " })], spacing: { after: 240 } }), // Padding posterior de separación
+
+                            new Paragraph({
+                                alignment: "both", // Justificado según requerimiento
+                                children: [
+                                    new TextRun({ 
+                                        text: "Lo anterior, para su conocimiento, quedando atentos a cualquier otra inquietud o información adicional que pueda requerir en relación con el presente asunto.", 
+                                        font: "Verdana", 
+                                        size: 22 
+                                    })
+                                ],
+                                spacing: { after: 480 }
+                            }),
+                            new Paragraph({ children: [new TextRun({ text: "Atentamente,", font: "Verdana", size: 22 })], spacing: { after: 480 } }),
+                            new Paragraph({ alignment: "center", children: [new TextRun({ text: "(SIN NECESIDAD DE FIRMA)", italic: true, font: "Verdana", size: 20 })] }),
+                            new Paragraph({ alignment: "center", children: [new TextRun({ text: "Art 7 Ley 527 de 1999", font: "Verdana", size: 20 })], spacing: { after: 480 } }),
+                            new Paragraph({ alignment: "center", children: [new TextRun({ text: "DG. ROMERO ECHEVERRY EDUARD ANDRES", bold: true, font: "Verdana", size: 22 })] }),
+                            new Paragraph({ alignment: "center", children: [new TextRun({ text: "Asesor Jurídico - CPMS Pereira", bold: true, font: "Verdana", size: 22 })], spacing: { after: 480 } }),
+
+                            // Informacion de Revisión limpia
+                            new Paragraph({ children: [
+                                new TextRun({ text: "Elaboró: ", bold: true, font: "Verdana", size: 16 }),
+                                new TextRun({ text: data.elaborador || 'N/A', font: "Verdana", size: 16 })
+                            ] }),
+                            new Paragraph({ children: [
+                                new TextRun({ text: "Fecha de elaboración: ", bold: true, font: "Verdana", size: 16 }),
+                                new TextRun({ text: fechaHoyLarga, font: "Verdana", size: 16 })
+                            ] }),
+                            new Paragraph({ children: [
+                                new TextRun({ text: "Archivo: ", bold: true, font: "Verdana", size: 16 }),
+                                new TextRun({ text: "8100.6167.214.78.", font: "Verdana", size: 16 })
+                            ] })
+                        ]
+                    }]
+                });
+
+                Packer.toBlob(doc).then(blob => {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `Situacion_Juridica_${data.nombre.replace(/\s+/g, '_')}.docx`;
+                    link.click();
+                    showToast("Oficio de Situación Jurídica descargado.", "success");
+                });
+
+            } catch (err) {
+                console.error(err);
+                showToast("Fallo al empaquetar el Word. Intente nuevamente.", "error");
+            }
+        }
+
+        // Tabla estándar con configuración global de bordes ligera
+        function createStandardDocxTable(rowsData) {
+            const { Table, TableRow, TableCell, Paragraph, TextRun, BorderStyle, WidthType } = window.docx;
+            const thinBorder = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
+            return new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                    top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder,
+                    insideHorizontal: thinBorder, insideVertical: thinBorder
+                },
+                rows: rowsData.map(row => new TableRow({
+                    children: [
+                        new TableCell({
+                            width: { size: 40, type: WidthType.PERCENTAGE },
+                            children: [new Paragraph({ children: [new TextRun({ text: String(row[0] || ' '), bold: true, font: "Verdana", size: 18 })] })]
+                        }),
+                        new TableCell({
+                            width: { size: 60, type: WidthType.PERCENTAGE },
+                            children: [new Paragraph({ children: [new TextRun({ text: String(row[1] || ' '), font: "Verdana", size: 18 })] })]
+                        })
+                    ]
+                }))
+            });
+        }
+
+        // Tabla de beneficios con configuración de bordes integrada para evitar corrupción
+        function createBeneficiosDocxTable(data) {
+            const { Table, TableRow, TableCell, Paragraph, TextRun, BorderStyle, WidthType } = window.docx;
+            const thinBorder = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
+            const headers = ["BENEFICIO", "TIEMPO REQUERIDO", "ESTADO"];
+            
+            const req72h = Math.round(data.total_condena_dias * 0.30) || 0;
+            const reqDom = Math.round(data.total_condena_dias * 0.50) || 0;
+            const reqCond = Math.round(data.total_condena_dias * 0.60) || 0;
+
+            // NUEVO: Verificamos el estado excluido para inyectarlo en el archivo Word
+            const estado72h = data.excluido_72h ? "DELITO EXCLUIDO" : (data.tiempo_efectivo_dias >= req72h ? "CUMPLE" : "NO CUMPLE");
+            const estadoDom = data.excluido_dom ? "DELITO EXCLUIDO" : (data.tiempo_efectivo_dias >= reqDom ? "CUMPLE" : "NO CUMPLE");
+            const estadoCond = data.excluido_cond ? "DELITO EXCLUIDO" : (data.tiempo_efectivo_dias >= reqCond ? "CUMPLE" : "NO CUMPLE");
+
+            const benefitsRows = [
+                ["PERMISO DE 72 HORAS (30%)", format360DaysEquivalent(req72h), estado72h],
+                ["PRISIÓN DOMICILIARIA (50%)", format360DaysEquivalent(reqDom), estadoDom],
+                ["LIBERTAD CONDICIONAL (3/5 PARTES)", format360DaysEquivalent(reqCond), estadoCond]
+            ];
+
+            return new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                    top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder,
+                    insideHorizontal: thinBorder, insideVertical: thinBorder
+                },
+                rows: [
+                    new TableRow({
+                        children: headers.map(header => new TableCell({
+                            width: { size: 33, type: WidthType.PERCENTAGE },
+                            children: [new Paragraph({ children: [new TextRun({ text: header || ' ', bold: true, font: "Verdana", size: 18 })] })]
+                        }))
+                    }),
+                    ...benefitsRows.map(row => new TableRow({
+                        children: [
+                            new TableCell({
+                                width: { size: 40, type: WidthType.PERCENTAGE },
+                                children: [new Paragraph({ children: [new TextRun({ text: String(row[0] || ' '), font: "Verdana", size: 18 })] })]
+                            }),
+                            new TableCell({
+                                width: { size: 40, type: WidthType.PERCENTAGE },
+                                children: [new Paragraph({ children: [new TextRun({ text: String(row[1] || ' '), font: "Verdana", size: 18 })] })]
+                            }),
+                            new TableCell({
+                                width: { size: 20, type: WidthType.PERCENTAGE },
+                                children: [new Paragraph({ children: [new TextRun({ text: String(row[2] || ' '), font: "Verdana", size: 18 })] })]
+                            })
+                        ]
+                    }))
+                ]
+            });
+        }
+
+        function formatMil(numStr) {
+            const clean = numStr.replace(/\D/g, '');
+            if (!clean) return '';
+            return parseInt(clean, 10).toLocaleString('es-CO').replace(/,/g, '.');
+        }
+
+        function formatCedulaInput(input) {
+            if (!input) return;
+            input.value = formatMil(input.value);
+        }
+
+        function getFechaLargaHoy() {
+            return getFechaLarga(new Date().toISOString().substring(0, 10));
+        }
+
+        function getFechaLarga(fechaStr) {
+            const [y, m, d] = fechaStr.split('-');
+            const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+            return `${parseInt(d, 10)} de ${meses[parseInt(m, 10) - 1]} de ${y}`;
+        }
+
+        function formatDateToDMY(fechaStr) {
+            if (!fechaStr) return 'N/A';
+            const date = parseDateSecure(fechaStr);
+            if (!date) return fechaStr;
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            return `${d}/${m}/${y}`;
+        }
+
+        function showToast(message, type = "success") {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            
+            let bg = "bg-emerald-600";
+            let icon = "check-circle";
+            if (type === "error") { bg = "bg-rose-600"; icon = "alert-triangle"; }
+            else if (type === "warning") { bg = "bg-amber-500"; icon = "alert-circle"; }
+            else if (type === "info") { bg = "bg-sky-600"; icon = "info"; }
+
+            toast.className = `${bg} text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2.5 text-xs font-bold transform translate-y-2 transition duration-300 opacity-0`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-4 h-4"></i>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-0', 'translate-y-2');
+            }, 50);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 4000);
+        }
+
+        function triggerPPLSearchModal() {
+            openHistoryModal();
+            const searchInput = document.getElementById('history-search');
+            if (searchInput) searchInput.focus();
+        }
+
+        // --- SISTEMA DE CONTROL DE ACCESO (LOGIN) ---
+        function checkLoginState() {
+            const loggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
+            const overlay = document.getElementById('login-overlay');
+            if (loggedIn) {
+                if (overlay) overlay.classList.add('hidden');
+                triggerCloudAuth();
+            } else {
+                if (overlay) overlay.classList.remove('hidden');
+            }
+            try { lucide.createIcons(); } catch(e) {}
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const user = document.getElementById('login-user').value.trim().toUpperCase();
+            const pass = document.getElementById('login-pass').value.trim();
+            const errorToast = document.getElementById('login-error-toast');
+            
+            if (user === 'PEREIRA' && pass === '000') {
+                sessionStorage.setItem('isLoggedIn', 'true');
+                const overlay = document.getElementById('login-overlay');
+                if (overlay) overlay.classList.add('hidden');
+                if (errorToast) errorToast.classList.add('hidden');
+                showToast("Acceso concedido. Sincronizando sistema...", "success");
+                triggerCloudAuth();
+            } else {
+                if (errorToast) errorToast.classList.remove('hidden');
+            }
+        }
+
+        // --- SISTEMA DE AUTENTICACIÓN EN LA NUBE ---
+        async function triggerCloudAuth() {
+            applyLicenseLock();
+            if (!isCloudActive) {
+                updateCloudStatusUI('local');
+                return;
+            }
+
+            updateCloudStatusUI('connecting');
+
+            onAuthStateChanged(auth, async (user) => {
+                currentUser = user;
+                if (user) {
+                    console.log("Conexión en la nube establecida con ID:", user.uid);
+                    await loadDataFromCloud();
+                } else {
+                    updateCloudStatusUI('local');
+                }
+            });
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) {
+                console.error("Fallo al autenticar en la nube, usando modo local offline:", e);
+                showToast("Sincronización en la nube desconectada (modo offline activo).", "warning");
+                updateCloudStatusUI('error');
+            }
+        }
+
+        // --- CARGA SÍNCRONA DE DATOS DESDE LA NUBE ---
+        async function loadDataFromCloud() {
+            if (!isCloudActive || !currentUser) return;
+            try {
+                showToast("Sincronizando expedientes con la nube...", "info");
+                
+                const pplQuerySnapshot = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'ppl_records'));
+                pplDatabase = JSON.parse(localStorage.getItem('ppl_database') || '{}');
+                pplQuerySnapshot.forEach((doc) => {
+                    pplDatabase[doc.id] = doc.data();
+                });
+                localStorage.setItem('ppl_database', JSON.stringify(pplDatabase));
+
+                const histQuerySnapshot = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'history_records'));
+                let loadedHistory = [];
+                histQuerySnapshot.forEach((doc) => {
+                    loadedHistory.push(doc.data());
+                });
+
+                loadedHistory.sort((a, b) => b.id - a.id);
+                reportHistory = loadedHistory;
+                localStorage.setItem('report_history', JSON.stringify(reportHistory));
+
+                renderHistoryTable();
+                renderComplianceTable();
+
+                const currentNui = document.getElementById('ppl-numero-unico').value.trim();
+                if (currentNui && pplDatabase[currentNui]) {
+                    runCalculations();
+                }
+
+                showToast("Sincronización completa. Base de datos actualizada.", "success");
+                updateCloudStatusUI('connected');
+            } catch (e) {
+                console.error("Error sincronizando desde la nube:", e);
+                showToast("Error de sincronización. Trabajando en modo local (offline).", "warning");
+                updateCloudStatusUI('error');
+            }
+        }
+
+        // --- SISTEMA DE CADUCIDAD DE LICENCIA ESTRICTO ---
+        function isLicenseExpired() {
+            const now = new Date();
+            const expirationDate = new Date("2026-11-15");
+            return now > expirationDate;
+        }
+
+        function applyLicenseLock() {
+            if (isLicenseExpired()) {
+                const btnSave = document.getElementById('btn-save-calc');
+                const btnDocx = document.getElementById('btn-gen-docx');
+                
+                if (btnSave) {
+                    btnSave.disabled = true;
+                    btnSave.onclick = null;
+                    btnSave.className = "bg-slate-300 text-slate-500 cursor-not-allowed px-5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow";
+                    btnSave.title = "LICENCIA CADUCADA - El software ha sido bloqueado.";
+                }
+                if (btnDocx) {
+                    btnDocx.disabled = true;
+                    btnDocx.onclick = null;
+                    btnDocx.className = "bg-slate-300 text-slate-500 cursor-not-allowed px-5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow";
+                    btnDocx.title = "LICENCIA CADUCADA - El software ha sido bloqueado.";
+                }
+
+                showToast("LICENCIA CADUCADA - Este software ha sido estrictamente bloqueado. Contacte al desarrollador.", "error");
+            }
+        }
+
+        // --- SISTEMA DE CONTROL DE MODAL PARA CONFIGURACIÓN DE FIREBASE ---
+        function openCloudConfigModal() {
+            const modal = document.getElementById('modal-cloud-config');
+            const textarea = document.getElementById('cloud-firebase-config-input');
+            if (modal) {
+                modal.classList.remove('hidden');
+                // Intentamos rellenar con la configuración guardada anteriormente
+                const savedConfig = localStorage.getItem('custom_firebase_config');
+                if (savedConfig && textarea) {
+                    textarea.value = savedConfig;
+                }
+            }
+        }
+
+        function closeCloudConfigModal() {
+            const modal = document.getElementById('modal-cloud-config');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveCloudFirebaseConfig() {
+            const textarea = document.getElementById('cloud-firebase-config-input');
+            if (!textarea) return;
+            const value = textarea.value.trim();
+
+            if (!value) {
+                localStorage.removeItem('custom_firebase_config');
+                showToast("Configuración borrada. Volviendo a modo local offline...", "info");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                return;
+            }
+
+            try {
+                let parsed = null;
+                try {
+                    parsed = JSON.parse(value);
+                } catch(e) {
+                    try {
+                        let cleanText = value.replace(/^(const|let|var)\s+firebaseConfig\s*=\s*/i, "")
+                                             .replace(/;?\s*$/g, "");
+                        const fn = new Function('return ' + cleanText);
+                        parsed = fn();
+                    } catch(err) {
+                        console.error("Error en parseo de configuración:", err);
+                    }
+                }
+
+                if (parsed && typeof parsed === 'object' && parsed.apiKey && parsed.projectId) {
+                    localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
+                    showToast("¡Configuración guardada! Recargando para establecer conexión...", "success");
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast("La configuración no parece ser válida. Requiere al menos de apiKey y projectId.", "error");
+                }
+            } catch (e) {
+                showToast("El texto ingresado no es válido. Por favor verifique los campos copiado.", "error");
+            }
+        }
+
+        function updateCloudStatusUI(status) {
+            const dot = document.getElementById('cloud-status-dot');
+            const text = document.getElementById('cloud-status-text');
+            if (!dot || !text) return;
+            if (status === 'connected') {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                text.textContent = "Sincronizado en la Nube";
+                text.className = "font-medium text-emerald-400 text-xs";
+            } else if (status === 'error') {
+                dot.className = "w-2 h-2 rounded-full bg-rose-500";
+                text.textContent = "Error de Sincronización";
+                text.className = "font-medium text-rose-400 text-xs";
+            } else if (status === 'connecting') {
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                text.textContent = "Conectando...";
+                text.className = "font-medium text-amber-400 text-xs";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-slate-400";
+                text.textContent = "Modo Local (Sin Nube)";
+                text.className = "font-medium text-slate-300 text-xs";
+            }
+        }
+
+        // Exportar funciones del módulo al objeto global Window
+        window.cleanForm = cleanForm;
+        window.saveAndCalculate = saveAndCalculate;
+        window.openHistoryModal = openHistoryModal;
+        window.closeHistoryModal = closeHistoryModal;
+        window.openComplianceModal = openComplianceModal;
+        window.closeComplianceModal = closeComplianceModal;
+        window.toggleSelectAllCompliance = toggleSelectAllCompliance;
+        window.copySelectedComplianceToExcel = copySelectedComplianceToExcel;
+        window.executeComplianceSearch = executeComplianceSearch;
+        window.filterComplianceTable = filterComplianceTable;
+        window.generateWordDocument = generateWordDocument;
+        window.openHoursCalculator = openHoursCalculator;
+        window.closeHoursCalculator = closeHoursCalculator;
+        window.switchActivityTab = switchActivityTab;
+        window.clearHoursCalculatorFields = clearHoursCalculatorFields;
+        window.transferHoursToRedemption = transferHoursToRedemption;
+        window.toggleSelectAllHistory = toggleSelectAllHistory;
+        window.copySelectedHistoryToExcel = copySelectedHistoryToExcel;
+        window.deleteHistoryRecord = deleteHistoryRecord;
+        window.toggleHistoryDateSort = toggleHistoryDateSort;
+        window.handleLogin = handleLogin;
+        window.triggerPPLSearchModal = triggerPPLSearchModal;
+        window.checkExistingPPL = checkExistingPPL;
+        window.closeAutocompleteConfirm = closeAutocompleteConfirm;
+        window.formatCedulaInput = formatCedulaInput;
+        window.showAutocomplete = showAutocomplete;
+        window.calculateDetentionDays = calculateDetentionDays;
+        window.sumRedemptionTotals = sumRedemptionTotals;
+        window.runCalculations = runCalculations;
+        window.openCloudConfigModal = openCloudConfigModal;
+        window.closeCloudConfigModal = closeCloudConfigModal;
+        window.saveCloudFirebaseConfig = saveCloudFirebaseConfig;
+        window.executeHistorySearch = executeHistorySearch;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkLoginState();
+            if (!isCloudActive) {
+                updateCloudStatusUI('local');
+            }
+        });
+    </script>
+</body>
+</html>
